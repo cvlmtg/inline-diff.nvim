@@ -1,0 +1,13 @@
+# Neovim swap/backup files
+*.swp
+*.swo
+*~
+
+# luacheck cache
+.luacheck_cache
+
+# stylua cache
+.stylua_cache
+
+# test dependencies (vendor)
+tests/vendor/
