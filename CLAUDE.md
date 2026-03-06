@@ -10,20 +10,20 @@ Neovim plugin written in Lua providing inline diff functionality.
 
 Run tests (requires [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)):
 ```bash
-nvim --headless -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua'}" -c "qa"
+nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedDirectory tests/ {minimal_init = 'tests/minimal_init.lua'}" -c "qa"
 ```
 
 Run a single test file:
 ```bash
-nvim --headless -c "PlenaryBustedFile tests/path_to_spec.lua" -c "qa"
+nvim --headless -u tests/minimal_init.lua -c "PlenaryBustedFile tests/path_to_spec.lua" -c "qa"
 ```
 
-Lint with `luacheck` (if configured):
+Lint with `luacheck`:
 ```bash
 luacheck lua/
 ```
 
-Format with `stylua` (if configured):
+Format with `stylua`:
 ```bash
 stylua lua/
 ```
@@ -38,9 +38,9 @@ lua/inline-diff/
   diff.lua        # Diff engine: LCS line diff + word diff, git HEAD retrieval
   highlight.lua   # Derive InlineDiff* highlight groups from DiffAdd/DiffDelete
   render.lua      # Apply extmarks (line highlights, virt_lines, inline virt_text)
-  state.lua       # Per-buffer state: namespace, augroup, debounce timer
+  state.lua       # Per-buffer state: namespace, augroup, debounce timer, edge-virt flags, ref cache
 plugin/
-  inline-diff.lua # Auto-loaded: registers InlineDiffEnable/Disable/Toggle commands
+  inline-diff.lua # Auto-loaded: registers InlineDiffEnable/Disable/Toggle(InlineDiff) commands
 tests/
   minimal_init.lua  # Minimal Neovim config bootstrapping plenary
   *_spec.lua        # Test files (plenary busted)
@@ -50,7 +50,7 @@ tests/
 
 - Requires **Neovim 0.11+** (uses `virt_text_pos = "inline"` and `vim.uv`).
 - Internals are exposed as `M._*` for unit testing.
-- Word-level colors are derived at runtime by blending `DiffAdd`/`DiffDelete` bg toward white (40%). Groups are re-derived on `ColorScheme`.
+- Word-level colors are derived at runtime by shifting the HSL lightness and saturation of `DiffAdd`/`DiffDelete`. Groups are re-derived on `ColorScheme`.
 - Deleted lines render as `virt_lines`.
 - Live updates are debounced (default 150 ms) via a reused `vim.uv` timer per buffer.
 - Tests use plenary's `busted`-compatible API (`describe`, `it`, `assert`).

@@ -144,7 +144,7 @@ Available test files:
 
 | File | What it covers |
 |---|---|
-| `tests/diff_spec.lua` | Diff parsing, LCS, pure Lua line diff (`_diff_lines`), word-level diff |
+| `tests/diff_spec.lua` | LCS algorithm, pure Lua line diff (`_diff_lines`), word-level diff |
 | `tests/highlight_spec.lua` | HSL color math, round-trips, boost/contrast formulas |
 | `tests/render_spec.lua` | Extmark chunk builders, virt_line placement |
 | `tests/pipeline_spec.lua` | End-to-end: line diff → render → extmark positions |
