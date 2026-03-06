@@ -1,12 +1,12 @@
 local M = {}
 
+M._root_cache = {}
+
 function M.get_ref_content(filepath, ref, callback)
-  vim.system({ "git", "rev-parse", "--show-toplevel" }, { text = true, cwd = vim.fn.fnamemodify(filepath, ":h") }, function(obj)
-    if obj.code ~= 0 then
-      vim.schedule(function() callback(nil, "not a git repo") end)
-      return
-    end
-    local root = vim.trim(obj.stdout)
+  local dir = vim.fn.fnamemodify(filepath, ":h")
+  local cached_root = M._root_cache[dir]
+
+  local function fetch_content(root)
     local relpath = filepath:sub(#root + 2) -- skip root + "/"
     vim.system({ "git", "show", ref .. ":" .. relpath }, { text = true, cwd = root }, function(obj2)
       vim.schedule(function()
@@ -22,6 +22,21 @@ function M.get_ref_content(filepath, ref, callback)
         callback(lines)
       end)
     end)
+  end
+
+  if cached_root then
+    fetch_content(cached_root)
+    return
+  end
+
+  vim.system({ "git", "rev-parse", "--show-toplevel" }, { text = true, cwd = dir }, function(obj)
+    if obj.code ~= 0 then
+      vim.schedule(function() callback(nil, "not a git repo") end)
+      return
+    end
+    local root = vim.trim(obj.stdout)
+    M._root_cache[dir] = root
+    fetch_content(root)
   end)
 end
 
@@ -58,7 +73,7 @@ function M._parse_diff(raw)
     local os_str, oc_str, ns_str, nc_str = line:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
     if os_str then
       if current then
-        table.insert(hunks, current)
+        hunks[#hunks + 1] = current
       end
       current = {
         old_start = tonumber(os_str),
@@ -72,17 +87,18 @@ function M._parse_diff(raw)
       if oc_str == "0" then current.old_count = 0 end
       if nc_str == "0" then current.new_count = 0 end
     elseif current then
-      if line:sub(1, 1) == "-" then
-        table.insert(current.old_lines, line:sub(2))
-      elseif line:sub(1, 1) == "+" then
-        table.insert(current.new_lines, line:sub(2))
+      local prefix = line:sub(1, 1)
+      if prefix == "-" then
+        current.old_lines[#current.old_lines + 1] = line:sub(2)
+      elseif prefix == "+" then
+        current.new_lines[#current.new_lines + 1] = line:sub(2)
       -- skip "\ No newline at end of file" and other \ lines
       end
     end
   end
 
   if current then
-    table.insert(hunks, current)
+    hunks[#hunks + 1] = current
   end
 
   return hunks
@@ -95,15 +111,13 @@ local function tokenize(str)
   while i <= len do
     local s, e = str:find("%S+", i)
     if not s then
-      -- trailing whitespace
-      table.insert(tokens, str:sub(i))
+      tokens[#tokens + 1] = str:sub(i)
       break
     end
     if s > i then
-      -- whitespace before this word
-      table.insert(tokens, str:sub(i, s - 1))
+      tokens[#tokens + 1] = str:sub(i, s - 1)
     end
-    table.insert(tokens, str:sub(s, e))
+    tokens[#tokens + 1] = str:sub(s, e)
     i = e + 1
   end
   return tokens
@@ -111,6 +125,7 @@ end
 
 function M._lcs(a, b)
   local m, n = #a, #b
+  local max = math.max
   -- dp[i][j] = length of LCS of a[1..i] and b[1..j]
   local dp = {}
   for i = 0, m do
@@ -120,11 +135,12 @@ function M._lcs(a, b)
     end
   end
   for i = 1, m do
+    local dp_i, dp_im1, a_i = dp[i], dp[i - 1], a[i]
     for j = 1, n do
-      if a[i] == b[j] then
-        dp[i][j] = dp[i - 1][j - 1] + 1
+      if a_i == b[j] then
+        dp_i[j] = dp_im1[j - 1] + 1
       else
-        dp[i][j] = math.max(dp[i - 1][j], dp[i][j - 1])
+        dp_i[j] = max(dp_im1[j], dp_i[j - 1])
       end
     end
   end
@@ -177,12 +193,12 @@ function M._word_diff(old_line, new_line)
         prev.text = prev.text .. token
         prev.byte_end = byte_end
       else
-        table.insert(segments, {
+        segments[#segments + 1] = {
           text = token,
           type = t,
           byte_start = byte_start,
           byte_end = byte_end,
-        })
+        }
       end
       pos = byte_end + 1
     end

@@ -12,6 +12,10 @@ function M.get(bufnr)
     timer = nil,
     enabled = false,
     generation = 0,
+    has_top_virt = false,
+    has_bot_virt = false,
+    ref_lines = nil,
+    ref_dirty = true,
   }
   M._bufs[bufnr] = s
   return s
