@@ -156,75 +156,11 @@ function M._diff_lines(old_lines, new_lines)
   return hunks
 end
 
-function M._compute_hunks_git(old_lines, new_lines, callback)
-  local old_tmp = vim.fn.tempname()
-  local new_tmp = vim.fn.tempname()
-  vim.fn.writefile(old_lines, old_tmp)
-  vim.fn.writefile(new_lines, new_tmp)
-
-  vim.system(
-    { "git", "diff", "--no-index", "--unified=0", "--no-color", old_tmp, new_tmp },
-    { text = true },
-    function(obj)
-      vim.schedule(function()
-        os.remove(old_tmp)
-        os.remove(new_tmp)
-        if obj.code == 0 then
-          callback({})
-        elseif obj.code == 1 then
-          callback(M._parse_diff(obj.stdout))
-        else
-          callback(nil, "git diff failed: " .. (obj.stderr or ""))
-        end
-      end)
-    end
-  )
-end
-
 function M.compute_hunks(old_lines, new_lines, callback)
   local hunks = M._diff_lines(old_lines, new_lines)
   vim.schedule(function()
     callback(hunks)
   end)
-end
-
-function M._parse_diff(raw)
-  local hunks = {}
-  local current = nil
-
-  for line in raw:gmatch("[^\n]*") do
-    local os_str, oc_str, ns_str, nc_str = line:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
-    if os_str then
-      if current then
-        hunks[#hunks + 1] = current
-      end
-      current = {
-        old_start = tonumber(os_str),
-        old_count = tonumber(oc_str) or 1,
-        new_start = tonumber(ns_str),
-        new_count = tonumber(nc_str) or 1,
-        old_lines = {},
-        new_lines = {},
-      }
-      -- Handle the special case where count is explicitly "0"
-      if oc_str == "0" then current.old_count = 0 end
-      if nc_str == "0" then current.new_count = 0 end
-    elseif current then
-      local prefix = line:sub(1, 1)
-      if prefix == "-" then
-        current.old_lines[#current.old_lines + 1] = line:sub(2)
-      elseif prefix == "+" then
-        current.new_lines[#current.new_lines + 1] = line:sub(2)
-      -- skip "\ No newline at end of file" and other \ lines
-      end
-    end
-  end
-
-  if current then
-    hunks[#hunks + 1] = current
-  end
-
-  return hunks
 end
 
 local function tokenize(str)
