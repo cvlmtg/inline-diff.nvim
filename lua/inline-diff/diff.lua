@@ -66,18 +66,13 @@ function M._diff_lines(old_lines, new_lines)
   local m, n = #old_lines, #new_lines
   local max = math.max
 
-  -- Hash lines for O(1) comparison
-  local old_h, new_h = {}, {}
-  for i = 1, m do old_h[i] = old_lines[i] end
-  for i = 1, n do new_h[i] = new_lines[i] end
-
   -- Strip common prefix and suffix to reduce LCS work
   local prefix = 0
-  while prefix < m and prefix < n and old_h[prefix + 1] == new_h[prefix + 1] do
+  while prefix < m and prefix < n and old_lines[prefix + 1] == new_lines[prefix + 1] do
     prefix = prefix + 1
   end
   local suffix = 0
-  while suffix < (m - prefix) and suffix < (n - prefix) and old_h[m - suffix] == new_h[n - suffix] do
+  while suffix < (m - prefix) and suffix < (n - prefix) and old_lines[m - suffix] == new_lines[n - suffix] do
     suffix = suffix + 1
   end
 
@@ -90,18 +85,16 @@ function M._diff_lines(old_lines, new_lines)
 
   -- Build LCS dp table for the trimmed middle section
   -- Use 1-indexed sub-arrays offset by prefix
-  local dp = {}
-  for i = 0, om do
-    dp[i] = {}
-    for j = 0, nm do
-      dp[i][j] = 0
-    end
-  end
+  -- Only boundary entries need pre-initialisation; the inner loop writes
+  -- every interior cell before it is read.
+  local dp = { [0] = {} }
+  for j = 0, nm do dp[0][j] = 0 end
+  for i = 1, om do dp[i] = { [0] = 0 } end
   for i = 1, om do
     local dp_i, dp_im1 = dp[i], dp[i - 1]
-    local val = old_h[prefix + i]
+    local val = old_lines[prefix + i]
     for j = 1, nm do
-      if val == new_h[prefix + j] then
+      if val == new_lines[prefix + j] then
         dp_i[j] = dp_im1[j - 1] + 1
       else
         dp_i[j] = max(dp_im1[j], dp_i[j - 1])
@@ -114,7 +107,7 @@ function M._diff_lines(old_lines, new_lines)
   local new_matched = {}
   local i, j = om, nm
   while i > 0 and j > 0 do
-    if old_h[prefix + i] == new_h[prefix + j] then
+    if old_lines[prefix + i] == new_lines[prefix + j] then
       old_matched[prefix + i] = true
       new_matched[prefix + j] = true
       i = i - 1
@@ -141,7 +134,7 @@ function M._diff_lines(old_lines, new_lines)
   local oi, ni = 1, 1
   while oi <= m or ni <= n do
     -- Skip matched lines (advance both pointers in lockstep for equal lines)
-    if oi <= m and ni <= n and old_matched[oi] and new_matched[ni] and old_h[oi] == new_h[ni] then
+    if oi <= m and ni <= n and old_matched[oi] and new_matched[ni] and old_lines[oi] == new_lines[ni] then
       oi = oi + 1
       ni = ni + 1
     else
@@ -179,10 +172,7 @@ function M._diff_lines(old_lines, new_lines)
 end
 
 function M.compute_hunks(old_lines, new_lines, callback)
-  local hunks = M._diff_lines(old_lines, new_lines)
-  vim.schedule(function()
-    callback(hunks)
-  end)
+  callback(M._diff_lines(old_lines, new_lines))
 end
 
 local function tokenize(str)
@@ -206,13 +196,9 @@ function M._lcs(a, b)
   local m, n = #a, #b
   local max = math.max
   -- dp[i][j] = length of LCS of a[1..i] and b[1..j]
-  local dp = {}
-  for i = 0, m do
-    dp[i] = {}
-    for j = 0, n do
-      dp[i][j] = 0
-    end
-  end
+  local dp = { [0] = {} }
+  for j = 0, n do dp[0][j] = 0 end
+  for i = 1, m do dp[i] = { [0] = 0 } end
   for i = 1, m do
     local dp_i, dp_im1, a_i = dp[i], dp[i - 1], a[i]
     for j = 1, n do
