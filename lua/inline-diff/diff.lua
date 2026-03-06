@@ -40,7 +40,123 @@ function M.get_ref_content(filepath, ref, callback)
   end)
 end
 
-function M.compute_hunks(old_lines, new_lines, callback)
+function M._diff_lines(old_lines, new_lines)
+  local m, n = #old_lines, #new_lines
+  local max = math.max
+
+  -- Hash lines for O(1) comparison
+  local old_h, new_h = {}, {}
+  for i = 1, m do old_h[i] = old_lines[i] end
+  for i = 1, n do new_h[i] = new_lines[i] end
+
+  -- Strip common prefix and suffix to reduce LCS work
+  local prefix = 0
+  while prefix < m and prefix < n and old_h[prefix + 1] == new_h[prefix + 1] do
+    prefix = prefix + 1
+  end
+  local suffix = 0
+  while suffix < (m - prefix) and suffix < (n - prefix) and old_h[m - suffix] == new_h[n - suffix] do
+    suffix = suffix + 1
+  end
+
+  local om = m - prefix - suffix
+  local nm = n - prefix - suffix
+
+  if om == 0 and nm == 0 then
+    return {}
+  end
+
+  -- Build LCS dp table for the trimmed middle section
+  -- Use 1-indexed sub-arrays offset by prefix
+  local dp = {}
+  for i = 0, om do
+    dp[i] = {}
+    for j = 0, nm do
+      dp[i][j] = 0
+    end
+  end
+  for i = 1, om do
+    local dp_i, dp_im1 = dp[i], dp[i - 1]
+    local val = old_h[prefix + i]
+    for j = 1, nm do
+      if val == new_h[prefix + j] then
+        dp_i[j] = dp_im1[j - 1] + 1
+      else
+        dp_i[j] = max(dp_im1[j], dp_i[j - 1])
+      end
+    end
+  end
+
+  -- Backtrack to find which lines are matched (equal)
+  local old_matched = {}
+  local new_matched = {}
+  local i, j = om, nm
+  while i > 0 and j > 0 do
+    if old_h[prefix + i] == new_h[prefix + j] then
+      old_matched[prefix + i] = true
+      new_matched[prefix + j] = true
+      i = i - 1
+      j = j - 1
+    elseif dp[i - 1][j] > dp[i][j - 1] then
+      i = i - 1
+    else
+      j = j - 1
+    end
+  end
+
+  -- Mark prefix/suffix lines as matched
+  for k = 1, prefix do
+    old_matched[k] = true
+    new_matched[k] = true
+  end
+  for k = 0, suffix - 1 do
+    old_matched[m - k] = true
+    new_matched[n - k] = true
+  end
+
+  -- Walk both sequences in parallel and extract contiguous change blocks
+  local hunks = {}
+  local oi, ni = 1, 1
+  while oi <= m or ni <= n do
+    -- Skip matched lines (advance both pointers in lockstep for equal lines)
+    if oi <= m and ni <= n and old_matched[oi] and new_matched[ni] and old_h[oi] == new_h[ni] then
+      oi = oi + 1
+      ni = ni + 1
+    else
+      -- Collect a contiguous block of changes
+      local old_start = oi
+      local new_start = ni
+      local del_lines = {}
+      local add_lines = {}
+
+      -- Gather unmatched old lines (deletions)
+      while oi <= m and not old_matched[oi] do
+        del_lines[#del_lines + 1] = old_lines[oi]
+        oi = oi + 1
+      end
+      -- Gather unmatched new lines (additions)
+      while ni <= n and not new_matched[ni] do
+        add_lines[#add_lines + 1] = new_lines[ni]
+        ni = ni + 1
+      end
+
+      if #del_lines > 0 or #add_lines > 0 then
+        hunks[#hunks + 1] = {
+          old_start = old_start,
+          old_count = #del_lines,
+          new_start = #add_lines > 0 and new_start or (new_start - 1),
+          new_count = #add_lines,
+          old_lines = del_lines,
+          new_lines = add_lines,
+        }
+      end
+    end
+  end
+
+  return hunks
+end
+
+function M._compute_hunks_git(old_lines, new_lines, callback)
   local old_tmp = vim.fn.tempname()
   local new_tmp = vim.fn.tempname()
   vim.fn.writefile(old_lines, old_tmp)
@@ -63,6 +179,13 @@ function M.compute_hunks(old_lines, new_lines, callback)
       end)
     end
   )
+end
+
+function M.compute_hunks(old_lines, new_lines, callback)
+  local hunks = M._diff_lines(old_lines, new_lines)
+  vim.schedule(function()
+    callback(hunks)
+  end)
 end
 
 function M._parse_diff(raw)
