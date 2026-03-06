@@ -232,16 +232,14 @@ local function tokenize(str)
   local i = 1
   local len = #str
   while i <= len do
-    local s, e = str:find("%S+", i)
-    if not s then
-      tokens[#tokens + 1] = str:sub(i)
-      break
+    local s, e = str:find("^[%w_]+", i)
+    if s then
+      tokens[#tokens + 1] = str:sub(s, e)
+      i = e + 1
+    else
+      tokens[#tokens + 1] = str:sub(i, i)
+      i = i + 1
     end
-    if s > i then
-      tokens[#tokens + 1] = str:sub(i, s - 1)
-    end
-    tokens[#tokens + 1] = str:sub(s, e)
-    i = e + 1
   end
   return tokens
 end
