@@ -44,7 +44,8 @@ COMMANDS                                                  *inline-diff-commands*
 :InlineDiffEnable [ref]                         *:InlineDiffEnable*
     Enable inline diff for the current buffer against `ref` (default: HEAD).
     If already enabled with a different ref, switches to the new ref.
-    Any ref accepted by `git show` works: commit SHA, branch, `HEAD~2`, etc.
+    `ref` can be any ref accepted by `git show` (commit SHA, branch, HEAD~2)
+    or the special value `staged` to diff against the git index.
 
 :InlineDiffDisable                              *:InlineDiffDisable*
     Disable inline diff for the current buffer and clear all highlights.
@@ -66,6 +67,7 @@ require("inline-diff").setup({opts})            *inline-diff.setup()*
 require("inline-diff").enable([bufnr], [ref])   *inline-diff.enable()*
     Enable inline diff for the given buffer against `ref` (default: "HEAD").
     If already enabled with a different ref, switches to the new ref.
+    Pass `"staged"` as `ref` to diff against the git index.
 
 require("inline-diff").disable([bufnr])         *inline-diff.disable()*
     Disable inline diff and clear all highlights for the given buffer.

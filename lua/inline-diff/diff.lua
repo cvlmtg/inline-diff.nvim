@@ -8,7 +8,8 @@ function M.get_ref_content(filepath, ref, callback)
 
   local function fetch_content(root)
     local relpath = filepath:sub(#root + 2) -- skip root + "/"
-    vim.system({ "git", "show", ref .. ":" .. relpath }, { text = true, cwd = root }, function(obj2)
+    local git_ref = ref == "staged" and ":0" or ref
+    vim.system({ "git", "show", git_ref .. ":" .. relpath }, { text = true, cwd = root }, function(obj2)
       vim.schedule(function()
         if obj2.code ~= 0 then
           callback(nil, "git show failed: " .. (obj2.stderr or ""))
