@@ -1,0 +1,195 @@
+local M = {}
+
+function M.get_ref_content(filepath, ref, callback)
+  vim.system({ "git", "rev-parse", "--show-toplevel" }, { text = true, cwd = vim.fn.fnamemodify(filepath, ":h") }, function(obj)
+    if obj.code ~= 0 then
+      vim.schedule(function() callback(nil, "not a git repo") end)
+      return
+    end
+    local root = vim.trim(obj.stdout)
+    local relpath = filepath:sub(#root + 2) -- skip root + "/"
+    vim.system({ "git", "show", ref .. ":" .. relpath }, { text = true, cwd = root }, function(obj2)
+      vim.schedule(function()
+        if obj2.code ~= 0 then
+          callback(nil, "git show failed: " .. (obj2.stderr or ""))
+          return
+        end
+        local lines = vim.split(obj2.stdout, "\n", { plain = true })
+        -- git show output ends with a newline, producing a trailing empty string
+        if #lines > 0 and lines[#lines] == "" then
+          table.remove(lines)
+        end
+        callback(lines)
+      end)
+    end)
+  end)
+end
+
+function M.compute_hunks(old_lines, new_lines, callback)
+  local old_tmp = vim.fn.tempname()
+  local new_tmp = vim.fn.tempname()
+  vim.fn.writefile(old_lines, old_tmp)
+  vim.fn.writefile(new_lines, new_tmp)
+
+  vim.system(
+    { "git", "diff", "--no-index", "--unified=0", "--no-color", old_tmp, new_tmp },
+    { text = true },
+    function(obj)
+      vim.schedule(function()
+        os.remove(old_tmp)
+        os.remove(new_tmp)
+        if obj.code == 0 then
+          callback({})
+        elseif obj.code == 1 then
+          callback(M._parse_diff(obj.stdout))
+        else
+          callback(nil, "git diff failed: " .. (obj.stderr or ""))
+        end
+      end)
+    end
+  )
+end
+
+function M._parse_diff(raw)
+  local hunks = {}
+  local current = nil
+
+  for line in raw:gmatch("[^\n]*") do
+    local os_str, oc_str, ns_str, nc_str = line:match("^@@ %-(%d+),?(%d*) %+(%d+),?(%d*) @@")
+    if os_str then
+      if current then
+        table.insert(hunks, current)
+      end
+      current = {
+        old_start = tonumber(os_str),
+        old_count = tonumber(oc_str) or 1,
+        new_start = tonumber(ns_str),
+        new_count = tonumber(nc_str) or 1,
+        old_lines = {},
+        new_lines = {},
+      }
+      -- Handle the special case where count is explicitly "0"
+      if oc_str == "0" then current.old_count = 0 end
+      if nc_str == "0" then current.new_count = 0 end
+    elseif current then
+      if line:sub(1, 1) == "-" then
+        table.insert(current.old_lines, line:sub(2))
+      elseif line:sub(1, 1) == "+" then
+        table.insert(current.new_lines, line:sub(2))
+      -- skip "\ No newline at end of file" and other \ lines
+      end
+    end
+  end
+
+  if current then
+    table.insert(hunks, current)
+  end
+
+  return hunks
+end
+
+local function tokenize(str)
+  local tokens = {}
+  local i = 1
+  local len = #str
+  while i <= len do
+    local s, e = str:find("%S+", i)
+    if not s then
+      -- trailing whitespace
+      table.insert(tokens, str:sub(i))
+      break
+    end
+    if s > i then
+      -- whitespace before this word
+      table.insert(tokens, str:sub(i, s - 1))
+    end
+    table.insert(tokens, str:sub(s, e))
+    i = e + 1
+  end
+  return tokens
+end
+
+function M._lcs(a, b)
+  local m, n = #a, #b
+  -- dp[i][j] = length of LCS of a[1..i] and b[1..j]
+  local dp = {}
+  for i = 0, m do
+    dp[i] = {}
+    for j = 0, n do
+      dp[i][j] = 0
+    end
+  end
+  for i = 1, m do
+    for j = 1, n do
+      if a[i] == b[j] then
+        dp[i][j] = dp[i - 1][j - 1] + 1
+      else
+        dp[i][j] = math.max(dp[i - 1][j], dp[i][j - 1])
+      end
+    end
+  end
+
+  -- Backtrack to find matched indices
+  local matches_a = {}
+  local matches_b = {}
+  local i, j = m, n
+  while i > 0 and j > 0 do
+    if a[i] == b[j] then
+      matches_a[i] = true
+      matches_b[j] = true
+      i = i - 1
+      j = j - 1
+    elseif dp[i - 1][j] > dp[i][j - 1] then
+      i = i - 1
+    else
+      j = j - 1
+    end
+  end
+
+  return matches_a, matches_b
+end
+
+function M._word_diff(old_line, new_line)
+  local old_tokens = tokenize(old_line)
+  local new_tokens = tokenize(new_line)
+
+  -- Performance guard
+  if #old_tokens > 200 or #new_tokens > 200 then
+    return {
+      { text = old_line, type = "del", byte_start = 1, byte_end = #old_line },
+    }, {
+      { text = new_line, type = "add", byte_start = 1, byte_end = #new_line },
+    }
+  end
+
+  local matches_a, matches_b = M._lcs(old_tokens, new_tokens)
+
+  local function build_segments(tokens, matches, change_type)
+    local segments = {}
+    local pos = 1
+    for idx, token in ipairs(tokens) do
+      local t = matches[idx] and "equal" or change_type
+      local byte_start = pos
+      local byte_end = pos + #token - 1
+      -- Merge with previous segment if same type
+      if #segments > 0 and segments[#segments].type == t then
+        local prev = segments[#segments]
+        prev.text = prev.text .. token
+        prev.byte_end = byte_end
+      else
+        table.insert(segments, {
+          text = token,
+          type = t,
+          byte_start = byte_start,
+          byte_end = byte_end,
+        })
+      end
+      pos = byte_end + 1
+    end
+    return segments
+  end
+
+  return build_segments(old_tokens, matches_a, "del"), build_segments(new_tokens, matches_b, "add")
+end
+
+return M

@@ -1,3 +1,8 @@
+local state = require("inline-diff.state")
+local highlight = require("inline-diff.highlight")
+local diff = require("inline-diff.diff")
+local render = require("inline-diff.render")
+
 local M = {}
 
 M.config = {
@@ -7,12 +12,125 @@ M.config = {
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  highlight.define()
+  highlight.setup_autocmd()
 end
 
-function M.enable(bufnr) end
+function M._refresh(bufnr)
+  local s = state.get(bufnr)
+  if not s.enabled then
+    return
+  end
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
 
-function M.disable(bufnr) end
+  s.generation = s.generation + 1
+  local gen = s.generation
 
-function M.toggle(bufnr) end
+  local filepath = vim.api.nvim_buf_get_name(bufnr)
+  if filepath == "" then
+    return
+  end
+
+  diff.get_ref_content(filepath, M.config.ref, function(old_lines, err)
+    if err or not old_lines then
+      return
+    end
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    local s2 = state._bufs[bufnr]
+    if not s2 or not s2.enabled or s2.generation ~= gen then
+      return
+    end
+
+    local new_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+    diff.compute_hunks(old_lines, new_lines, function(hunks, herr)
+      if herr or not hunks then
+        return
+      end
+      if not vim.api.nvim_buf_is_valid(bufnr) then
+        return
+      end
+      local s3 = state._bufs[bufnr]
+      if not s3 or not s3.enabled or s3.generation ~= gen then
+        return
+      end
+      render.apply(bufnr, s3.ns, hunks)
+    end)
+  end)
+end
+
+function M._schedule_refresh(bufnr)
+  local s = state.get(bufnr)
+  if not s.enabled then
+    return
+  end
+  if not s.timer then
+    s.timer = vim.uv.new_timer()
+  end
+  s.timer:stop()
+  s.timer:start(
+    M.config.debounce_ms,
+    0,
+    vim.schedule_wrap(function()
+      M._refresh(bufnr)
+    end)
+  )
+end
+
+function M.enable(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local s = state.get(bufnr)
+  if s.enabled then
+    return
+  end
+  s.enabled = true
+
+  -- Ensure highlights are defined
+  highlight.define()
+
+  -- Initial refresh
+  M._refresh(bufnr)
+
+  -- Set up autocmds for live updates
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+    group = s.augroup,
+    buffer = bufnr,
+    callback = function()
+      M._schedule_refresh(bufnr)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("BufWritePost", {
+    group = s.augroup,
+    buffer = bufnr,
+    callback = function()
+      M._refresh(bufnr)
+    end,
+  })
+end
+
+function M.disable(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local s = state._bufs[bufnr]
+  if not s or not s.enabled then
+    return
+  end
+  render.clear(bufnr, s.ns)
+  state.remove(bufnr)
+end
+
+function M.toggle(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local s = state._bufs[bufnr]
+  if s and s.enabled then
+    M.disable(bufnr)
+  else
+    M.enable(bufnr)
+  end
+end
 
 return M
