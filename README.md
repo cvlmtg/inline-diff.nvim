@@ -69,7 +69,7 @@ require("inline-diff").setup({
 | `:InlineDiffDisable` | Disable inline diff and clear all highlights |
 | `:InlineDiff [ref]` | Toggle inline diff; if `ref` is given, always enable with that ref |
 
-`ref` can be any git ref (`HEAD~1`, a commit SHA, a branch name) or the special value `staged` to diff against the index (what you've `git add`-ed).
+`ref` can be any git ref (`HEAD~1`, a commit SHA, a branch name) or the special value `staged` to diff against the index (what you've `git add`-ed). If `staged` is used but the file has no staged content, the diff falls back to `HEAD` automatically.
 
 ```vim
 :InlineDiff staged    " diff against staged (index)
