@@ -183,6 +183,15 @@ function M.enable(bufnr)
     end,
   })
 
+  vim.api.nvim_create_autocmd("BufReadPost", {
+    group = s.augroup,
+    buffer = bufnr,
+    callback = function()
+      -- Fired by :e! and similar reloads; buffer content has changed on disk.
+      M._refresh(bufnr)
+    end,
+  })
+
   vim.api.nvim_create_autocmd("BufWritePost", {
     group = s.augroup,
     buffer = bufnr,
