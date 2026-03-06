@@ -1,0 +1,110 @@
+*inline-diff.txt*  Live inline diff for Neovim
+
+Author: Matteo Cavalleri
+License: MIT
+
+==============================================================================
+INTRODUCTION                                              *inline-diff*
+
+inline-diff.nvim shows the current buffer's changes against a git ref
+(default: HEAD) as you type, with word-level highlighting. Deleted lines
+appear as virtual lines above or below the changed position; added and
+modified lines are highlighted inline.
+
+Requires Neovim 0.11+ and `git` in $PATH.
+
+==============================================================================
+REQUIREMENTS                                              *inline-diff-requirements*
+
+- Neovim 0.11 or later
+- `git` available in $PATH
+- The file must be inside a git repository
+
+==============================================================================
+SETUP                                                     *inline-diff-setup*
+
+Call `setup()` once in your config. All arguments are optional: >lua
+
+    require("inline-diff").setup({
+      debounce_ms = 150,  -- ms to wait after last keystroke
+      ref = "HEAD",       -- git ref to diff against
+    })
+<
+
+                                                          *inline-diff-config*
+Options ~
+
+  debounce_ms                                   *inline-diff-config-debounce_ms*
+      Type: `number`, Default: `150`
+      Milliseconds to wait after the last keystroke before recomputing the
+      diff. Raise this value if you notice CPU usage during fast typing.
+
+  ref                                           *inline-diff-config-ref*
+      Type: `string`, Default: `"HEAD"`
+      Git ref whose content is used as the "old" side of the diff. Any ref
+      accepted by `git show` works, e.g. `"HEAD~1"`, `"main"`, a commit SHA.
+
+==============================================================================
+COMMANDS                                                  *inline-diff-commands*
+
+:InlineDiffEnable                               *:InlineDiffEnable*
+    Enable inline diff for the current buffer and start live updates.
+
+:InlineDiffDisable                              *:InlineDiffDisable*
+    Disable inline diff for the current buffer and clear all highlights.
+
+:InlineDiff                                     *:InlineDiff*
+    Toggle inline diff on/off for the current buffer.
+
+==============================================================================
+LUA API                                                   *inline-diff-api*
+
+All functions accept an optional `bufnr` argument. When omitted, the
+current buffer is used.
+
+require("inline-diff").setup({opts})            *inline-diff.setup()*
+    Initialise the plugin and define highlight groups. Must be called once
+    before using any other function or command.
+
+require("inline-diff").enable([bufnr])          *inline-diff.enable()*
+    Enable inline diff for the given buffer.
+
+require("inline-diff").disable([bufnr])         *inline-diff.disable()*
+    Disable inline diff and clear all highlights for the given buffer.
+
+require("inline-diff").toggle([bufnr])          *inline-diff.toggle()*
+    Toggle inline diff for the given buffer.
+
+Example keymap: >lua
+
+    vim.keymap.set("n", "<leader>gd", "<cmd>InlineDiff<cr>",
+      { desc = "Toggle inline diff" })
+<
+
+==============================================================================
+HIGHLIGHT GROUPS                                          *inline-diff-highlights*
+
+Colors are derived automatically from your colorscheme's `DiffAdd` and
+`DiffDelete` groups and recomputed on the `ColorScheme` event.
+
+  InlineDiffAdd           *hl-InlineDiffAdd*
+      Background of added / modified lines in the new file.
+
+  InlineDiffDelete        *hl-InlineDiffDelete*
+      Background of deleted lines shown as virtual text.
+
+  InlineDiffWordAdd       *hl-InlineDiffWordAdd*
+      Background of individual added words within a changed line
+      (brighter than InlineDiffAdd).
+
+  InlineDiffWordDel       *hl-InlineDiffWordDel*
+      Background of individual deleted words in virtual lines
+      (brighter than InlineDiffDelete, strikethrough).
+
+Override any group after `setup()` or inside a `ColorScheme` autocmd: >lua
+
+    vim.api.nvim_set_hl(0, "InlineDiffWordAdd", { bg = 0x00AA44 })
+<
+
+==============================================================================
+ vim:tw=78:ts=8:ft=help:norl:

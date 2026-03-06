@@ -11,3 +11,6 @@
 
 # test dependencies (vendor)
 tests/vendor/
+
+# generated vimdoc tags
+doc/tags
