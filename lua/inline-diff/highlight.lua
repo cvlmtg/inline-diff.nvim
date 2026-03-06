@@ -54,11 +54,28 @@ function M._hsl_to_rgb(h, s, l)
   return ri * 65536 + gi * 256 + bi
 end
 
-function M._boost_color(rgb)
+-- Shift lightness by `l_delta` toward whichever direction creates more contrast:
+-- darken if the color is already bright (l >= 0.5), lighten if it is dark.
+-- Also boost saturation by `s_delta`. Both parameters are additive, so the
+-- output always differs from the input regardless of the base color's values.
+function M._boost_color(rgb, l_delta, s_delta)
+  l_delta = l_delta or 0.22
+  s_delta = s_delta or 0.20
   local h, s, l = M._rgb_to_hsl(rgb)
-  s = math.min(1, s * 1.5 + 0.15)
-  l = math.min(0.65, l * 1.3 + 0.07)
+  s = math.min(1, s + s_delta)
+  if l < 0.5 then
+    l = math.min(1, l + l_delta)
+  else
+    l = math.max(0, l - l_delta)
+  end
   return M._hsl_to_rgb(h, s, l)
+end
+
+-- Returns 0x000000 (black) or 0xFFFFFF (white), whichever contrasts better
+-- with the given background color.
+function M._contrast_fg(rgb)
+  local _, _, l = M._rgb_to_hsl(rgb)
+  return l >= 0.45 and 0x000000 or 0xFFFFFF
 end
 
 function M.define()
@@ -67,11 +84,13 @@ function M.define()
 
   local add_bg = add_hl.bg or 0x2E4B2E
   local del_bg = del_hl.bg or 0x4B2E2E
+  local word_add_bg = M._boost_color(add_bg, 0.08, 0.05)
+  local word_del_bg = M._boost_color(del_bg, 0.12, 0.15)
 
-  vim.api.nvim_set_hl(0, "InlineDiffAdd", { bg = add_bg })
-  vim.api.nvim_set_hl(0, "InlineDiffDelete", { bg = del_bg })
-  vim.api.nvim_set_hl(0, "InlineDiffWordAdd", { bg = M._boost_color(add_bg) })
-  vim.api.nvim_set_hl(0, "InlineDiffWordDel", { bg = M._boost_color(del_bg), strikethrough = true })
+  vim.api.nvim_set_hl(0, "InlineDiffAdd", { bg = add_bg, fg = M._contrast_fg(add_bg) })
+  vim.api.nvim_set_hl(0, "InlineDiffDelete", { bg = del_bg, fg = M._contrast_fg(del_bg) })
+  vim.api.nvim_set_hl(0, "InlineDiffWordAdd", { bg = word_add_bg, fg = M._contrast_fg(word_add_bg) })
+  vim.api.nvim_set_hl(0, "InlineDiffWordDel", { bg = word_del_bg, fg = M._contrast_fg(word_del_bg), strikethrough = true })
 end
 
 function M.setup_autocmd()

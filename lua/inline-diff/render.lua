@@ -41,10 +41,14 @@ function M.apply(bufnr, ns, hunks)
   for _, hunk in ipairs(hunks) do
     if hunk.old_count == 0 then
       -- Pure addition
-      for i = 0, hunk.new_count - 1 do
-        local line = hunk.new_start - 1 + i -- 0-indexed
-        vim.api.nvim_buf_set_extmark(bufnr, ns, line, 0, {
-          line_hl_group = "InlineDiffAdd",
+      for i = 1, hunk.new_count do
+        local line_idx = hunk.new_start - 1 + (i - 1) -- 0-indexed
+        local line_len = #(hunk.new_lines[i] or "")
+        vim.api.nvim_buf_set_extmark(bufnr, ns, line_idx, 0, {
+          end_col = line_len,
+          hl_group = "InlineDiffAdd",
+          hl_eol = true,
+          priority = 200,
         })
       end
     elseif hunk.new_count == 0 then
@@ -77,19 +81,26 @@ function M.apply(bufnr, ns, hunks)
 
         local new_line_idx = hunk.new_start - 1 + (i - 1) -- 0-indexed
 
-        -- Single extmark: virt_line above + line highlight for the new line
+        -- virt_lines (old line above)
         vim.api.nvim_buf_set_extmark(bufnr, ns, new_line_idx, 0, {
           virt_lines = { old_chunks },
           virt_lines_above = true,
-          line_hl_group = "InlineDiffAdd",
         })
 
-        -- Word-level highlights on new line
+        -- Line background at priority 200 so it overrides treesitter/syntax fg.
+        vim.api.nvim_buf_set_extmark(bufnr, ns, new_line_idx, 0, {
+          end_col = #new_line,
+          hl_group = "InlineDiffAdd",
+          hl_eol = true,
+          priority = 200,
+        })
+
+        -- Word-level highlights at priority 300 so they override the line bg.
         for _, hl in ipairs(new_highlights) do
           vim.api.nvim_buf_set_extmark(bufnr, ns, new_line_idx, hl.col, {
             end_col = hl.end_col,
             hl_group = hl.hl_group,
-            priority = 200,
+            priority = 300,
           })
         end
       end
@@ -111,8 +122,12 @@ function M.apply(bufnr, ns, hunks)
       if hunk.new_count > hunk.old_count then
         for i = paired + 1, hunk.new_count do
           local line_idx = hunk.new_start - 1 + (i - 1)
+          local line_len = #(hunk.new_lines[i] or "")
           vim.api.nvim_buf_set_extmark(bufnr, ns, line_idx, 0, {
-            line_hl_group = "InlineDiffAdd",
+            end_col = line_len,
+            hl_group = "InlineDiffAdd",
+            hl_eol = true,
+            priority = 200,
           })
         end
       end
