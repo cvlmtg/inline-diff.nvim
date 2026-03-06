@@ -59,8 +59,67 @@ function M._refresh(bufnr)
         return
       end
       render.apply(bufnr, s3.ns, hunks)
+      M._adjust_scroll(bufnr, s3.ns)
     end)
   end)
+end
+
+function M._adjust_scroll(bufnr, ns)
+  local buf_line_count = vim.api.nvim_buf_line_count(bufnr)
+  for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+    local view = vim.api.nvim_win_call(winid, vim.fn.winsaveview)
+
+    -- First-line deletion: set topfill so virt_lines_above at row 0 are visible.
+    -- winrestview must be called as a Lua string inside win_execute so it runs
+    -- in the context of winid (direct nvim_win_call + winrestview does not work).
+    if view.topline == 1 then
+      local marks = vim.api.nvim_buf_get_extmarks(bufnr, ns, { 0, 0 }, { 0, -1 }, { details = true })
+      for _, m in ipairs(marks) do
+        if m[4].virt_lines and m[4].virt_lines_above then
+          local count = #m[4].virt_lines
+          if view.topfill ~= count then
+            vim.fn.win_execute(winid, "lua vim.fn.winrestview({topfill=" .. count .. "})")
+          end
+          break
+        end
+      end
+    end
+
+    -- Last-line deletion: scroll down so all virtual lines below the last buffer
+    -- line fit within the window.
+    local win_height = vim.api.nvim_win_get_height(winid)
+    local last_row = buf_line_count - 1
+    local bot_marks = vim.api.nvim_buf_get_extmarks(bufnr, ns, { last_row, 0 }, { last_row, -1 }, { details = true })
+    for _, m in ipairs(bot_marks) do
+      if m[4].virt_lines and not (m[4].virt_lines_above == true) then
+        local count = #m[4].virt_lines
+        -- Cheap pre-check: if the last buffer line is definitely off-screen
+        -- even without counting virtual lines, skip the expensive calculation.
+        if buf_line_count - view.topline < win_height then
+          -- Use nvim_win_text_height to get the true screen row of the last
+          -- buffer line, accounting for intermediate virtual lines and topfill
+          -- that push it further down than a simple line-count would suggest.
+          local height_above = 0
+          if buf_line_count >= 2 then
+            local h = vim.api.nvim_win_text_height(winid, {
+              start_row = view.topline - 1,
+              end_row = buf_line_count - 2,
+            })
+            height_above = h.all
+          end
+          local last_line_row = view.topfill + height_above
+          if last_line_row <= win_height - 1 then
+            local space = (win_height - 1) - last_line_row
+            local needed = count - space
+            if needed > 0 then
+              vim.fn.win_execute(winid, "normal! " .. needed .. "\5") -- N<C-e>
+            end
+          end
+        end
+        break
+      end
+    end
+  end
 end
 
 function M._schedule_refresh(bufnr)
@@ -109,6 +168,17 @@ function M.enable(bufnr)
     buffer = bufnr,
     callback = function()
       M._refresh(bufnr)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+    group = s.augroup,
+    buffer = bufnr,
+    callback = function()
+      local s2 = state._bufs[bufnr]
+      if s2 and s2.enabled then
+        M._adjust_scroll(bufnr, s2.ns)
+      end
     end,
   })
 end

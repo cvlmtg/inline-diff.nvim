@@ -57,16 +57,24 @@ function M.apply(bufnr, ns, hunks)
       for _, old_line in ipairs(hunk.old_lines) do
         table.insert(virt_lines, { { old_line, "InlineDiffDelete" } })
       end
-      local anchor = hunk.new_start - 1 -- 0-indexed
-      local above = false
+      local buf_line_count = vim.api.nvim_buf_line_count(bufnr)
+
+      -- git's "+N,0" sets new_start = number of new-file lines *before* the
+      -- gap, so deleted content always belongs *after* line new_start in the
+      -- new file. Special case: new_start=0 means the deletion is before the
+      -- very first line (show above row 0). Otherwise show below row new_start-1.
       if hunk.new_start == 0 then
-        anchor = 0
-        above = true
+        vim.api.nvim_buf_set_extmark(bufnr, ns, 0, 0, {
+          virt_lines = virt_lines,
+          virt_lines_above = true,
+        })
+      else
+        local anchor = math.min(hunk.new_start - 1, buf_line_count - 1) -- 0-indexed, clamped
+        vim.api.nvim_buf_set_extmark(bufnr, ns, anchor, 0, {
+          virt_lines = virt_lines,
+          virt_lines_above = false,
+        })
       end
-      vim.api.nvim_buf_set_extmark(bufnr, ns, anchor, 0, {
-        virt_lines = virt_lines,
-        virt_lines_above = above or (hunk.new_start > 0),
-      })
     else
       -- Changed lines: pair old and new 1:1
       local paired = math.min(hunk.old_count, hunk.new_count)
