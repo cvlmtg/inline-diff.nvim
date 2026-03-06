@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `[ref]` argument on all commands and the Lua API — diff against any git ref
+  per invocation without changing the default (`HEAD~1`, a branch, a SHA, …)
+- `staged` ref: diff against the git index (what you've `git add`-ed); falls
+  back to `HEAD` automatically when the file has no staged content
+
+### Performance
+- Removed redundant O(m+n) line-copy in `_diff_lines`
+- LCS dp-table initialization reduced from O(m×n) to O(m+n) by only
+  pre-filling boundary rows/cols
+- `compute_hunks` now delivers results synchronously, saving one event-loop
+  round-trip per keystroke
+
 ## [0.1.0] - 2026-03-06
 
 ### Added
