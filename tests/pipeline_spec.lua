@@ -90,6 +90,29 @@ describe("pipeline – pure deletion", function()
     assert.are.equal("line3", marks[1].text)
   end)
 
+  it("modified line: old content appears as virt_line above the changed line", function()
+    local old_lines = { "line1", "foo", "line3" }
+    local new_lines = { "line1", "bar", "line3" }
+
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, new_lines)
+
+    local hunks, err
+    run_pipeline(old_lines, new_lines, function(h, e) hunks = h; err = e end)
+
+    assert.is_nil(err)
+    assert.are.equal(1, #hunks)
+    assert.are.equal(1, hunks[1].old_count)
+    assert.are.equal(1, hunks[1].new_count)
+
+    render.apply(bufnr, ns, hunks)
+
+    local marks = get_virt_marks(bufnr, ns)
+    assert.are.equal(1, #marks)
+    assert.are.equal(1, marks[1].row)   -- 0-indexed row 1 = "bar"
+    assert.is_true(marks[1].above)
+    assert.are.equal("foo", marks[1].text)
+  end)
+
   it("middle-line deletion: virt_line appears between the surrounding lines", function()
     local old_lines = { "line1", "line2", "line3" }
     local new_lines = { "line1", "line3" }
