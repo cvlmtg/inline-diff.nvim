@@ -7,7 +7,6 @@ local M = {}
 
 M.config = {
   debounce_ms = 150,
-  ref = "HEAD",
 }
 
 function M.setup(opts)
@@ -66,7 +65,7 @@ function M._refresh(bufnr)
     return
   end
 
-  diff.get_ref_content(filepath, M.config.ref, function(old_lines, err)
+  diff.get_ref_content(filepath, s.ref, function(old_lines, err)
     if err or not old_lines then
       return
     end
@@ -160,13 +159,26 @@ function M._schedule_refresh(bufnr)
   )
 end
 
-function M.enable(bufnr)
+function M.enable(bufnr, ref)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
+  ref = ref or "HEAD"
   local s = state.get(bufnr)
+
   if s.enabled then
+    if s.ref == ref then
+      return
+    end
+    -- Switching ref: clear highlights and re-diff
+    render.clear(bufnr, s.ns)
+    s.ref = ref
+    s.ref_lines = nil
+    s.ref_dirty = true
+    M._refresh(bufnr)
     return
   end
+
   s.enabled = true
+  s.ref = ref
 
   -- Ensure highlights are defined
   highlight.define()
@@ -234,13 +246,14 @@ function M.disable(bufnr)
   state.remove(bufnr)
 end
 
-function M.toggle(bufnr)
+function M.toggle(bufnr, ref)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local s = state._bufs[bufnr]
-  if s and s.enabled then
+  -- Disable only when already enabled and no ref is specified
+  if s and s.enabled and not ref then
     M.disable(bufnr)
   else
-    M.enable(bufnr)
+    M.enable(bufnr, ref)
   end
 end
 

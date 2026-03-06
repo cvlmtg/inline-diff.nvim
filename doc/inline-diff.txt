@@ -27,7 +27,6 @@ Call `setup()` once in your config. All arguments are optional: >lua
 
     require("inline-diff").setup({
       debounce_ms = 150,  -- ms to wait after last keystroke
-      ref = "HEAD",       -- git ref to diff against
     })
 <
 
@@ -39,22 +38,20 @@ Options ~
       Milliseconds to wait after the last keystroke before recomputing the
       diff. Raise this value if you notice CPU usage during fast typing.
 
-  ref                                           *inline-diff-config-ref*
-      Type: `string`, Default: `"HEAD"`
-      Git ref whose content is used as the "old" side of the diff. Any ref
-      accepted by `git show` works, e.g. `"HEAD~1"`, `"main"`, a commit SHA.
-
 ==============================================================================
 COMMANDS                                                  *inline-diff-commands*
 
-:InlineDiffEnable                               *:InlineDiffEnable*
-    Enable inline diff for the current buffer and start live updates.
+:InlineDiffEnable [ref]                         *:InlineDiffEnable*
+    Enable inline diff for the current buffer against `ref` (default: HEAD).
+    If already enabled with a different ref, switches to the new ref.
+    Any ref accepted by `git show` works: commit SHA, branch, `HEAD~2`, etc.
 
 :InlineDiffDisable                              *:InlineDiffDisable*
     Disable inline diff for the current buffer and clear all highlights.
 
-:InlineDiff                                     *:InlineDiff*
-    Toggle inline diff on/off for the current buffer.
+:InlineDiff [ref]                               *:InlineDiff*
+    Toggle inline diff for the current buffer. Without `ref`, disables if
+    currently enabled. With `ref`, always enables (or switches ref).
 
 ==============================================================================
 LUA API                                                   *inline-diff-api*
@@ -66,19 +63,23 @@ require("inline-diff").setup({opts})            *inline-diff.setup()*
     Initialise the plugin and define highlight groups. Must be called once
     before using any other function or command.
 
-require("inline-diff").enable([bufnr])          *inline-diff.enable()*
-    Enable inline diff for the given buffer.
+require("inline-diff").enable([bufnr], [ref])   *inline-diff.enable()*
+    Enable inline diff for the given buffer against `ref` (default: "HEAD").
+    If already enabled with a different ref, switches to the new ref.
 
 require("inline-diff").disable([bufnr])         *inline-diff.disable()*
     Disable inline diff and clear all highlights for the given buffer.
 
-require("inline-diff").toggle([bufnr])          *inline-diff.toggle()*
-    Toggle inline diff for the given buffer.
+require("inline-diff").toggle([bufnr], [ref])   *inline-diff.toggle()*
+    Toggle inline diff. Without `ref`, disables if currently enabled.
+    With `ref`, always enables (or switches ref).
 
-Example keymap: >lua
+Example keymaps: >lua
 
     vim.keymap.set("n", "<leader>gd", "<cmd>InlineDiff<cr>",
       { desc = "Toggle inline diff" })
+    vim.keymap.set("n", "<leader>gD", "<cmd>InlineDiff HEAD~1<cr>",
+      { desc = "Diff against HEAD~1" })
 <
 
 ==============================================================================

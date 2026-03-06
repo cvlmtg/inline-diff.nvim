@@ -54,7 +54,6 @@ require("inline-diff").setup()
 ```lua
 require("inline-diff").setup({
   debounce_ms = 150,  -- ms to wait after last keystroke before refreshing
-  ref = "HEAD",       -- git ref to diff against
 })
 ```
 
@@ -66,23 +65,25 @@ require("inline-diff").setup({
 
 | Command | Description |
 |---|---|
-| `:InlineDiffEnable` | Enable inline diff for the current buffer |
+| `:InlineDiffEnable [ref]` | Enable inline diff for the current buffer, optionally against `ref` (default: `HEAD`) |
 | `:InlineDiffDisable` | Disable inline diff and clear all highlights |
-| `:InlineDiff` | Toggle inline diff on/off |
+| `:InlineDiff [ref]` | Toggle inline diff; if `ref` is given, always enable with that ref |
 
 ### Lua API
 
 ```lua
 local d = require("inline-diff")
 
-d.enable()         -- enable for current buffer
-d.enable(bufnr)    -- enable for a specific buffer
+d.enable()              -- enable for current buffer, diff against HEAD
+d.enable(nil, "HEAD~1") -- diff against a specific ref
+d.enable(bufnr, ref)    -- enable for a specific buffer and ref
 
-d.disable()        -- disable for current buffer
+d.disable()             -- disable for current buffer
 d.disable(bufnr)
 
-d.toggle()         -- toggle for current buffer
-d.toggle(bufnr)
+d.toggle()              -- toggle for current buffer
+d.toggle(nil, ref)      -- always enable with ref (never disables)
+d.toggle(bufnr, ref)
 ```
 
 ### Suggested keymaps

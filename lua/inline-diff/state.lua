@@ -12,6 +12,7 @@ function M.get(bufnr)
     timer = nil,
     enabled = false,
     generation = 0,
+    ref = "HEAD",
     has_top_virt = false,
     has_bot_virt = false,
     ref_lines = nil,
