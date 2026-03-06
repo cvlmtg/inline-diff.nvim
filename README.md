@@ -11,12 +11,7 @@ Live, VSCode-style inline diff for Neovim. Shows the current buffer's changes ag
 ### lazy.nvim
 
 ```lua
-{
-  "cvlmtg/inline-diff.nvim",
-  config = function()
-    require("inline-diff").setup()
-  end,
-}
+{ "cvlmtg/inline-diff.nvim", opts = {} }
 ```
 
 ### packer.nvim
