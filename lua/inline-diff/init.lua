@@ -118,7 +118,7 @@ function M._adjust_scroll(bufnr, ns)
           local count = #m[4].virt_lines
           if buf_line_count - view.topline < win_height then
             local height_above = 0
-            if buf_line_count >= 2 then
+            if buf_line_count >= 2 and view.topline < buf_line_count then
               local h = vim.api.nvim_win_text_height(winid, {
                 start_row = view.topline - 1,
                 end_row = buf_line_count - 2,
@@ -126,8 +126,14 @@ function M._adjust_scroll(bufnr, ns)
               height_above = h.all
             end
             local last_line_row = view.topfill + height_above
-            if last_line_row <= win_height - 1 then
-              local space = (win_height - 1) - last_line_row
+            -- Account for the last buffer line's own visual height (it may wrap).
+            local last_line_h = vim.api.nvim_win_text_height(winid, {
+              start_row = buf_line_count - 1,
+              end_row = buf_line_count - 1,
+            })
+            local last_line_height = last_line_h.all - last_line_h.fill
+            if last_line_row + last_line_height <= win_height then
+              local space = win_height - last_line_row - last_line_height
               local needed = count - space
               if needed > 0 then
                 vim.fn.win_execute(winid, "normal! " .. needed .. "\5") -- N<C-e>
