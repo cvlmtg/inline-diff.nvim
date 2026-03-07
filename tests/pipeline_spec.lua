@@ -98,6 +98,7 @@ describe("pipeline – pure deletion", function()
 
     local hunks, err
     run_pipeline(old_lines, new_lines, function(h, e) hunks = h; err = e end)
+    vim.wait(2000, function() return hunks ~= nil or err ~= nil end)
 
     assert.is_nil(err)
     assert.are.equal(1, #hunks)

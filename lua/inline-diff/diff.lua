@@ -2,6 +2,10 @@ local M = {}
 
 M._root_cache = {}
 
+-- Prevents async handles from being GC'd before the thread callback fires.
+local _pending = {}
+local _pending_id = 0
+
 function M.get_ref_content(filepath, ref, callback)
   local dir = vim.fn.fnamemodify(filepath, ":h")
   local cached_root = M._root_cache[dir]
@@ -172,7 +176,37 @@ function M._diff_lines(old_lines, new_lines)
 end
 
 function M.compute_hunks(old_lines, new_lines, callback)
-  callback(M._diff_lines(old_lines, new_lines))
+  if not vim.uv.new_thread then
+    callback(M._diff_lines(old_lines, new_lines))
+    return
+  end
+
+  local old_s = table.concat(old_lines, "\n")
+  local new_s = table.concat(new_lines, "\n")
+  local pkg_path = package.path
+
+  _pending_id = _pending_id + 1
+  local id = _pending_id
+  -- Close the handle on the main thread (closing from the thread suppresses delivery).
+  local async
+  async = vim.uv.new_async(vim.schedule_wrap(function(result)
+    async:close()
+    _pending[id] = nil
+    local ok, hunks = pcall(vim.json.decode, result)
+    callback(ok and hunks or nil, not ok and result or nil)
+  end))
+  _pending[id] = async -- prevent GC before the thread fires
+
+  vim.uv.new_thread(function(pkg, old, new, handle)
+    package.path = pkg
+    local ok, worker = pcall(require, "inline-diff._worker")
+    if not ok then
+      handle:send("[]")
+      return
+    end
+    local ok2, result = pcall(worker.run, old, new)
+    handle:send(ok2 and result or "[]")
+  end, pkg_path, old_s, new_s, async)
 end
 
 local function tokenize(str)
