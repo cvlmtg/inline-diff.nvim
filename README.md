@@ -1,5 +1,7 @@
 # inline-diff.nvim
 
+![Demo](/.github/assets/diff.gif)
+
 Live, VSCode-style inline diff for Neovim. Shows the current buffer's changes against a git ref (which defaults to `HEAD`) as you type, with word-level highlighting.
 
 This plugin was built as an experiment in vibe coding with [Claude Code](https://claude.ai/code). The goal was to explore how far AI-assisted development could go on a real, non-trivial Neovim plugin — from architecture to edge cases to performance. The result turned out to be genuinely useful, carefully tested, and fast enough for everyday use, so it felt worth sharing.
