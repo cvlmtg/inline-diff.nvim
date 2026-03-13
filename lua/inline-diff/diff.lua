@@ -3,8 +3,8 @@ local M = {}
 M._root_cache = {}
 
 -- Prevents async handles from being GC'd before the thread callback fires.
-local _pending = {}
-local _pending_id = 0
+local _pending = {} -- luacheck: ignore
+local _pending_id = 0 -- luacheck: ignore
 
 function M.get_ref_content(filepath, ref, callback)
   local dir = vim.fn.fnamemodify(filepath, ":h")
