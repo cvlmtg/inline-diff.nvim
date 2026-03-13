@@ -11,7 +11,7 @@ function M.get_ref_content(filepath, ref, callback)
   local cached_root = M._root_cache[dir]
 
   local function fetch_content(root)
-    local relpath = filepath:sub(#root + 2) -- skip root + "/"
+    local relpath = filepath:sub(#root + 2):gsub("\\", "/") -- skip root + sep; normalize to forward slashes for git
 
     local function deliver(stdout)
       local lines = vim.split(stdout, "\r?\n")
