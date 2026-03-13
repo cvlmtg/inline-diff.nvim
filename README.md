@@ -15,7 +15,7 @@ This plugin was built as an experiment in vibe coding with [Claude Code](https:/
 ### lazy.nvim
 
 ```lua
-{ "cvlmtg/inline-diff.nvim", version = "^1.0.0", opts = {} }
+{ "cvlmtg/inline-diff.nvim", opts = {} }
 ```
 
 ### packer.nvim
@@ -23,7 +23,6 @@ This plugin was built as an experiment in vibe coding with [Claude Code](https:/
 ```lua
 use {
   "cvlmtg/inline-diff.nvim",
-  tag = "v1.0.0",
   config = function()
     require("inline-diff").setup()
   end,
@@ -33,7 +32,7 @@ use {
 ### Manual (no plugin manager)
 
 ```bash
-git clone --branch v1.0.0 https://github.com/cvlmtg/inline-diff.nvim \
+git clone https://github.com/cvlmtg/inline-diff.nvim \
   ~/.local/share/nvim/site/pack/plugins/start/inline-diff.nvim
 ```
 
