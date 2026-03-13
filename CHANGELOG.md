@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.0.0] - 2026-03-13
+
+### Fixed
+- Windows: `git show` path spec now uses forward slashes; backslashes in
+  `relpath` caused git to report "path exists on disk but not in HEAD"
+- Windows: `git show` output with CRLF line endings no longer leaves
+  trailing `\r` on every old line, which caused all lines to compare unequal
+- Thread worker: if `require("inline-diff._worker")` fails in the background
+  thread (e.g. due to `package.path` resolution differences), the diff now
+  falls back to synchronous computation on the main thread instead of
+  silently producing no output
+
+### Performance
+- Diff computation runs off the main thread via `vim.uv.new_thread`, keeping
+  the UI responsive on large files
+
 ## [1.0.0] - 2026-03-07
 
 ### Added
