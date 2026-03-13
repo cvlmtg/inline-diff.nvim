@@ -192,6 +192,12 @@ function M.compute_hunks(old_lines, new_lines, callback)
   async = vim.uv.new_async(vim.schedule_wrap(function(result)
     async:close()
     _pending[id] = nil
+    if result:sub(1, 4) == "ERR:" then
+      -- Thread failed to load the worker (e.g. package.path issue on Windows);
+      -- fall back to computing the diff synchronously on the main thread.
+      callback(M._diff_lines(old_lines, new_lines))
+      return
+    end
     local ok, hunks = pcall(vim.json.decode, result)
     callback(ok and hunks or nil, not ok and result or nil)
   end))
@@ -201,11 +207,15 @@ function M.compute_hunks(old_lines, new_lines, callback)
     package.path = pkg
     local ok, worker = pcall(require, "inline-diff._worker")
     if not ok then
-      handle:send("[]")
+      handle:send("ERR:" .. tostring(worker))
       return
     end
     local ok2, result = pcall(worker.run, old, new)
-    handle:send(ok2 and result or "[]")
+    if not ok2 then
+      handle:send("ERR:" .. tostring(result))
+      return
+    end
+    handle:send(result)
   end, pkg_path, old_s, new_s, async)
 end
 
