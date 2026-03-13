@@ -14,7 +14,7 @@ function M.get_ref_content(filepath, ref, callback)
     local relpath = filepath:sub(#root + 2) -- skip root + "/"
 
     local function deliver(stdout)
-      local lines = vim.split(stdout, "\n", { plain = true })
+      local lines = vim.split(stdout, "\r?\n")
       -- git show output ends with a newline, producing a trailing empty string
       if #lines > 0 and lines[#lines] == "" then
         table.remove(lines)
