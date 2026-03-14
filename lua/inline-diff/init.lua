@@ -5,6 +5,39 @@ local render = require("inline-diff.render")
 
 local M = {}
 
+local function hunks_equal(a, b)
+  if a == b then
+    return true
+  end
+  if not a or not b or #a ~= #b then
+    return false
+  end
+  for i = 1, #a do
+    local ha, hb = a[i], b[i]
+    if ha.old_start ~= hb.old_start
+      or ha.old_count ~= hb.old_count
+      or ha.new_start ~= hb.new_start
+      or ha.new_count ~= hb.new_count
+    then
+      return false
+    end
+    if #ha.old_lines ~= #hb.old_lines or #ha.new_lines ~= #hb.new_lines then
+      return false
+    end
+    for j = 1, #ha.old_lines do
+      if ha.old_lines[j] ~= hb.old_lines[j] then
+        return false
+      end
+    end
+    for j = 1, #ha.new_lines do
+      if ha.new_lines[j] ~= hb.new_lines[j] then
+        return false
+      end
+    end
+  end
+  return true
+end
+
 M.config = {
   debounce_ms = 150,
 }
@@ -54,6 +87,10 @@ function M._refresh(bufnr)
       if not s3 or not s3.enabled or s3.generation ~= gen then
         return
       end
+      if hunks_equal(hunks, s3.prev_hunks) then
+        return
+      end
+      s3.prev_hunks = hunks
       render.apply(bufnr, s3.ns, hunks)
       M._adjust_scroll(bufnr, s3.ns)
     end)

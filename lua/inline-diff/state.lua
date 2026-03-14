@@ -17,6 +17,7 @@ function M.get(bufnr)
     has_bot_virt = false,
     ref_lines = nil,
     ref_dirty = true,
+    prev_hunks = nil,
   }
   M._bufs[bufnr] = s
   return s
