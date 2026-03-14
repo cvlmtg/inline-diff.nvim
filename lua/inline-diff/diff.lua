@@ -272,44 +272,6 @@ local function tokenize(str)
   return tokens
 end
 
-function M._lcs(a, b)
-  local m, n = #a, #b
-  local max = math.max
-  -- dp[i][j] = length of LCS of a[1..i] and b[1..j]
-  local dp = { [0] = {} }
-  for j = 0, n do dp[0][j] = 0 end
-  for i = 1, m do dp[i] = { [0] = 0 } end
-  for i = 1, m do
-    local dp_i, dp_im1, a_i = dp[i], dp[i - 1], a[i]
-    for j = 1, n do
-      if a_i == b[j] then
-        dp_i[j] = dp_im1[j - 1] + 1
-      else
-        dp_i[j] = max(dp_im1[j], dp_i[j - 1])
-      end
-    end
-  end
-
-  -- Backtrack to find matched indices
-  local matches_a = {}
-  local matches_b = {}
-  local i, j = m, n
-  while i > 0 and j > 0 do
-    if a[i] == b[j] then
-      matches_a[i] = true
-      matches_b[j] = true
-      i = i - 1
-      j = j - 1
-    elseif dp[i - 1][j] > dp[i][j - 1] then
-      i = i - 1
-    else
-      j = j - 1
-    end
-  end
-
-  return matches_a, matches_b
-end
-
 function M._word_diff(old_line, new_line)
   local old_tokens = tokenize(old_line)
   local new_tokens = tokenize(new_line)
@@ -323,7 +285,16 @@ function M._word_diff(old_line, new_line)
     }
   end
 
-  local matches_a, matches_b = M._lcs(old_tokens, new_tokens)
+  local m, n = #old_tokens, #new_tokens
+  local prefix = 0
+  while prefix < m and prefix < n and old_tokens[prefix + 1] == new_tokens[prefix + 1] do
+    prefix = prefix + 1
+  end
+  local suffix = 0
+  while suffix < (m - prefix) and suffix < (n - prefix) and old_tokens[m - suffix] == new_tokens[n - suffix] do
+    suffix = suffix + 1
+  end
+  local matches_a, matches_b = M._myers_matched(old_tokens, new_tokens, prefix, suffix, m, n, m - prefix - suffix, n - prefix - suffix)
 
   local function build_segments(tokens, matches, change_type)
     local segments = {}

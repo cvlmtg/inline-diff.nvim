@@ -45,36 +45,6 @@ describe("_myers_matched", function()
   end)
 end)
 
-describe("_lcs", function()
-  it("finds common subsequence", function()
-    local a = { "a", "b", "c", "d" }
-    local b = { "a", "x", "c", "d" }
-    local ma, mb = diff._lcs(a, b)
-    assert.is_true(ma[1])
-    assert.is_nil(ma[2])
-    assert.is_true(ma[3])
-    assert.is_true(ma[4])
-    assert.is_true(mb[1])
-    assert.is_nil(mb[2])
-    assert.is_true(mb[3])
-    assert.is_true(mb[4])
-  end)
-
-  it("handles empty arrays", function()
-    local ma, mb = diff._lcs({}, { "a" })
-    assert.are.same({}, ma)
-    assert.are.same({}, mb)
-  end)
-
-  it("handles identical arrays", function()
-    local a = { "x", "y" }
-    local ma, mb = diff._lcs(a, a)
-    assert.is_true(ma[1])
-    assert.is_true(ma[2])
-    assert.is_true(mb[1])
-    assert.is_true(mb[2])
-  end)
-end)
 
 describe("_diff_lines", function()
   it("returns empty for identical content", function()
