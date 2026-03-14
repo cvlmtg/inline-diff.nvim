@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.1.0] - 2026-03-14
+
+### Performance
+- Myers O(ND) algorithm now used for word-level diff, replacing the O(m×n) LCS
+- Hunk cache: skip extmark clear+rebuild when hunks are unchanged between refreshes (common during typing)
+- Synchronous diff path for files under 500 total lines, avoiding thread serialization overhead
+- `decode_lines` in worker no longer allocates a copy of the full content string
+
+### Fixed
+- `prev_hunks` cache correctly invalidated when switching refs, preventing blank buffer after `render.clear()`
+
+### Tests
+- 69 tests (up from 60); added `_hunks_equal` unit tests and ref-switch invalidation coverage
+
 ## [2.0.0] - 2026-03-13
 
 ### Fixed
