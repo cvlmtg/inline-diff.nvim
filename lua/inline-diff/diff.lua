@@ -66,11 +66,91 @@ function M.get_ref_content(filepath, ref, callback)
   end)
 end
 
+-- Myers shortest-edit-script algorithm.
+-- Returns old_matched[i] / new_matched[j] boolean tables for the full arrays,
+-- with prefix and suffix lines already marked matched on entry.
+function M._myers_matched(old_lines, new_lines, prefix, suffix, m, n, om, nm)
+  local old_matched = {}
+  local new_matched = {}
+
+  for k = 1, prefix do
+    old_matched[k] = true
+    new_matched[k] = true
+  end
+  for k = 0, suffix - 1 do
+    old_matched[m - k] = true
+    new_matched[n - k] = true
+  end
+
+  if om == 0 or nm == 0 then
+    return old_matched, new_matched
+  end
+
+  -- V[k] = furthest x reached on diagonal k = x - y.
+  -- Lua tables support negative indices natively.
+  local V = { [1] = 0 }
+  local trace = {}
+
+  for d = 0, om + nm do
+    for k = -d, d, 2 do
+      local x
+      if k == -d or (k ~= d and (V[k - 1] or 0) < (V[k + 1] or 0)) then
+        x = V[k + 1] or 0 -- move down (insertion)
+      else
+        x = (V[k - 1] or 0) + 1 -- move right (deletion)
+      end
+      local y = x - k
+      while x < om and y < nm and old_lines[prefix + x + 1] == new_lines[prefix + y + 1] do
+        x = x + 1
+        y = y + 1
+      end
+      V[k] = x
+
+      if x >= om and y >= nm then
+        -- Backtrace: walk the stored V snapshots in reverse to mark matched lines.
+        local cx, cy = om, nm
+        for bd = d, 1, -1 do
+          local Vp = trace[bd - 1]
+          local kk = cx - cy
+          local sx, sy, px, py
+          if kk == -bd or (kk ~= bd and (Vp[kk - 1] or 0) < (Vp[kk + 1] or 0)) then
+            local vp = Vp[kk + 1] or 0 -- insertion: came from diagonal kk+1
+            sx, sy = vp, vp - kk
+            px, py = vp, vp - kk - 1
+          else
+            local vp = Vp[kk - 1] or 0 -- deletion: came from diagonal kk-1
+            sx, sy = vp + 1, vp - kk + 1
+            px, py = vp, vp - kk + 1
+          end
+          while cx > sx do -- mark the snake (diagonal = matching lines)
+            cx = cx - 1
+            cy = cy - 1
+            old_matched[prefix + cx + 1] = true
+            new_matched[prefix + cy + 1] = true
+          end
+          cx, cy = px, py
+        end
+        while cx > 0 do -- remaining snake at d=0
+          cx = cx - 1
+          cy = cy - 1
+          old_matched[prefix + cx + 1] = true
+          new_matched[prefix + cy + 1] = true
+        end
+        return old_matched, new_matched
+      end
+    end
+    local snap = {}
+    for kk, vv in pairs(V) do snap[kk] = vv end
+    trace[d] = snap
+  end
+
+  return old_matched, new_matched
+end
+
 function M._diff_lines(old_lines, new_lines)
   local m, n = #old_lines, #new_lines
-  local max = math.max
 
-  -- Strip common prefix and suffix to reduce LCS work
+  -- Strip common prefix and suffix to reduce Myers work
   local prefix = 0
   while prefix < m and prefix < n and old_lines[prefix + 1] == new_lines[prefix + 1] do
     prefix = prefix + 1
@@ -87,51 +167,7 @@ function M._diff_lines(old_lines, new_lines)
     return {}
   end
 
-  -- Build LCS dp table for the trimmed middle section
-  -- Use 1-indexed sub-arrays offset by prefix
-  -- Only boundary entries need pre-initialisation; the inner loop writes
-  -- every interior cell before it is read.
-  local dp = { [0] = {} }
-  for j = 0, nm do dp[0][j] = 0 end
-  for i = 1, om do dp[i] = { [0] = 0 } end
-  for i = 1, om do
-    local dp_i, dp_im1 = dp[i], dp[i - 1]
-    local val = old_lines[prefix + i]
-    for j = 1, nm do
-      if val == new_lines[prefix + j] then
-        dp_i[j] = dp_im1[j - 1] + 1
-      else
-        dp_i[j] = max(dp_im1[j], dp_i[j - 1])
-      end
-    end
-  end
-
-  -- Backtrack to find which lines are matched (equal)
-  local old_matched = {}
-  local new_matched = {}
-  local i, j = om, nm
-  while i > 0 and j > 0 do
-    if old_lines[prefix + i] == new_lines[prefix + j] then
-      old_matched[prefix + i] = true
-      new_matched[prefix + j] = true
-      i = i - 1
-      j = j - 1
-    elseif dp[i - 1][j] > dp[i][j - 1] then
-      i = i - 1
-    else
-      j = j - 1
-    end
-  end
-
-  -- Mark prefix/suffix lines as matched
-  for k = 1, prefix do
-    old_matched[k] = true
-    new_matched[k] = true
-  end
-  for k = 0, suffix - 1 do
-    old_matched[m - k] = true
-    new_matched[n - k] = true
-  end
+  local old_matched, new_matched = M._myers_matched(old_lines, new_lines, prefix, suffix, m, n, om, nm)
 
   -- Walk both sequences in parallel and extract contiguous change blocks
   local hunks = {}

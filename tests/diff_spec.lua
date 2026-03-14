@@ -1,5 +1,50 @@
 local diff = require("inline-diff.diff")
 
+describe("_myers_matched", function()
+  it("marks the single common line in a substitution", function()
+    -- old={"a","b","c"}, new={"a","x","c"}: prefix=1 ("a"), suffix=1 ("c"), middle old={"b"}, new={"x"}
+    local old = { "a", "b", "c" }
+    local new = { "a", "x", "c" }
+    local old_m, new_m = diff._myers_matched(old, new, 1, 1, 3, 3, 1, 1)
+    -- prefix "a" and suffix "c" matched; middle "b" vs "x" unmatched
+    assert.is_true(old_m[1])  -- "a"
+    assert.is_nil(old_m[2])   -- "b" unmatched
+    assert.is_true(old_m[3])  -- "c"
+    assert.is_true(new_m[1])
+    assert.is_nil(new_m[2])
+    assert.is_true(new_m[3])
+  end)
+
+  it("marks nothing in the middle for a pure deletion", function()
+    -- old={"a","b","c"}, new={"a","c"}: prefix=1, suffix=1, middle old={"b"}, new={}
+    local old = { "a", "b", "c" }
+    local new = { "a", "c" }
+    local om, nm = diff._myers_matched(old, new, 1, 1, 3, 2, 1, 0)
+    assert.is_true(om[1])
+    assert.is_nil(om[2])  -- "b" deleted
+    assert.is_true(om[3])
+    assert.is_true(nm[1])
+    assert.is_true(nm[2])
+  end)
+
+  it("marks the LCS correctly across multiple changes", function()
+    -- old={"a","b","c","d","e"}, new={"a","x","c","y","e"}: prefix=1, suffix=1, middle 3 vs 3
+    local old = { "a", "b", "c", "d", "e" }
+    local new = { "a", "x", "c", "y", "e" }
+    local om, nm = diff._myers_matched(old, new, 1, 1, 5, 5, 3, 3)
+    assert.is_true(om[1])   -- "a"
+    assert.is_nil(om[2])    -- "b" changed
+    assert.is_true(om[3])   -- "c" matched
+    assert.is_nil(om[4])    -- "d" changed
+    assert.is_true(om[5])   -- "e"
+    assert.is_true(nm[1])
+    assert.is_nil(nm[2])    -- "x" changed
+    assert.is_true(nm[3])   -- "c" matched
+    assert.is_nil(nm[4])    -- "y" changed
+    assert.is_true(nm[5])
+  end)
+end)
+
 describe("_lcs", function()
   it("finds common subsequence", function()
     local a = { "a", "b", "c", "d" }
