@@ -69,6 +69,15 @@ end
 -- Myers shortest-edit-script algorithm.
 -- Returns old_matched[i] / new_matched[j] boolean tables for the full arrays,
 -- with prefix and suffix lines already marked matched on entry.
+--
+-- old_lines  full old sequence (lines or tokens)
+-- new_lines  full new sequence
+-- prefix     number of equal elements at the start (already matched)
+-- suffix     number of equal elements at the end   (already matched)
+-- m          #old_lines
+-- n          #new_lines
+-- om         number of old elements in the middle  (m - prefix - suffix)
+-- nm         number of new elements in the middle  (n - prefix - suffix)
 function M._myers_matched(old_lines, new_lines, prefix, suffix, m, n, om, nm)
   local old_matched = {}
   local new_matched = {}
