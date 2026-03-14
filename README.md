@@ -1,12 +1,34 @@
 # inline-diff.nvim
 
+![Neovim](https://img.shields.io/badge/Neovim-0.11+-green?logo=neovim)
+![License](https://img.shields.io/github/license/cvlmtg/inline-diff.nvim)
+![Latest release](https://img.shields.io/github/v/release/cvlmtg/inline-diff.nvim)
+
 ![Demo](/.github/assets/diff.gif)
 
 High performance, live, VSCode-style inline diff for Neovim. Shows the current buffer's changes against a git ref (which defaults to `HEAD`) as you type, with word-level highlighting.
 
-This plugin was built as an experiment in vibe coding with [Claude Code](https://claude.ai/code). The goal was to explore how far AI-assisted development could go on a real, non-trivial Neovim plugin — from architecture to edge cases to performance. The result turned out to be genuinely useful, carefully tested, and high-performance, so it felt worth sharing.
+## Features
 
-**Requires Neovim 0.11+.**
+- 🔴 Live word-level highlighting as you type
+- ⚡ High performance via debouncing and sync / async diffing with Myers algorithm
+- 🎯 Compares against any git ref (default: `HEAD`)
+- 🎨 Fully customizable highlight groups
+- 📦 Zero dependencies beyond Neovim 0.11+ and git
+
+## Why inline-diff.nvim?
+
+Unlike split-based diff tools like `diffview.nvim` or Neovim's built-in
+`:diffsplit`, which open a separate panel to show changes side by side,
+inline-diff.nvim renders deletions and insertions **directly in your buffer**,
+word by word — like VSCode's inline diff editor. There's no context switch,
+no extra window to manage: you see what changed exactly where it changed,
+while you keep editing.
+
+`gitsigns.nvim` also works inline, but only marks changed lines in the sign
+column without showing the actual content of deletions. inline-diff.nvim
+shows you the full picture: removed text appears struck through (or
+highlighted) next to the new version, at the word level.
 
 ---
 
@@ -51,3 +73,9 @@ vim.keymap.set("n", "<leader>gd", "<cmd>InlineDiff<cr>", { desc = "Toggle inline
 ---
 
 For the full reference — commands, Lua API, highlight groups, and configuration — see `:help inline-diff`.
+
+---
+
+## Background
+
+This plugin was built as an experiment in vibe coding with [Claude Code](https://claude.ai/code). The goal was to explore how far AI-assisted development could go on a real, non-trivial Neovim plugin — from architecture to edge cases to performance. The result turned out to be genuinely useful, carefully tested, and high-performance, so it felt worth sharing.
