@@ -7,8 +7,17 @@ local M = {}
 local function decode_lines(s)
   if s == "" then return {} end
   local t = {}
-  for line in (s .. "\n"):gmatch("([^\n]*)\n") do
-    t[#t + 1] = line
+  local pos = 1
+  local len = #s
+  while pos <= len do
+    local nl = s:find("\n", pos, true)
+    if nl then
+      t[#t + 1] = s:sub(pos, nl - 1)
+      pos = nl + 1
+    else
+      t[#t + 1] = s:sub(pos)
+      break
+    end
   end
   return t
 end
