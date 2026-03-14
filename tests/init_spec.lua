@@ -1,6 +1,17 @@
 local M = require("inline-diff")
 local state = require("inline-diff.state")
 
+local function make_hunk(old_start, old_lines, new_start, new_lines)
+  return {
+    old_start = old_start,
+    old_count = #old_lines,
+    new_start = new_start,
+    new_count = #new_lines,
+    old_lines = old_lines,
+    new_lines = new_lines,
+  }
+end
+
 -- Initialise highlight groups once; safe in headless mode (fallback colors).
 M.setup()
 
@@ -39,15 +50,17 @@ describe("enable / disable / toggle", function()
     assert.are.equal(gen, state._bufs[bufnr].generation)
   end)
 
-  it("enable with a different ref resets cached ref content", function()
+  it("enable with a different ref resets cached ref content and prev_hunks", function()
     M.enable(bufnr, "HEAD")
     local s = state._bufs[bufnr]
     s.ref_lines = { "cached", "content" }
     s.ref_dirty = false
+    s.prev_hunks = { { old_start = 1, old_count = 1, new_start = 1, new_count = 1, old_lines = {}, new_lines = {} } }
     M.enable(bufnr, "HEAD~1")
     assert.are.equal("HEAD~1", s.ref)
     assert.is_nil(s.ref_lines)
     assert.is_true(s.ref_dirty)
+    assert.is_nil(s.prev_hunks)
   end)
 
   -- disable -----------------------------------------------------------------
@@ -85,5 +98,55 @@ describe("enable / disable / toggle", function()
     assert.is_not_nil(s)
     assert.is_true(s.enabled)
     assert.are.equal("HEAD~1", s.ref)
+  end)
+end)
+
+describe("_hunks_equal", function()
+  it("returns true for both nil", function()
+    assert.is_true(M._hunks_equal(nil, nil))
+  end)
+
+  it("returns true for same reference", function()
+    local h = { make_hunk(1, { "a" }, 1, { "b" }) }
+    assert.is_true(M._hunks_equal(h, h))
+  end)
+
+  it("returns false when one is nil", function()
+    local h = { make_hunk(1, { "a" }, 1, { "b" }) }
+    assert.is_false(M._hunks_equal(h, nil))
+    assert.is_false(M._hunks_equal(nil, h))
+  end)
+
+  it("returns true for equal empty arrays", function()
+    assert.is_true(M._hunks_equal({}, {}))
+  end)
+
+  it("returns false for different lengths", function()
+    local h1 = { make_hunk(1, { "a" }, 1, { "b" }) }
+    assert.is_false(M._hunks_equal(h1, {}))
+  end)
+
+  it("returns true for identical hunks", function()
+    local a = { make_hunk(1, { "old" }, 1, { "new" }) }
+    local b = { make_hunk(1, { "old" }, 1, { "new" }) }
+    assert.is_true(M._hunks_equal(a, b))
+  end)
+
+  it("returns false when a hunk field differs", function()
+    local a = { make_hunk(1, { "old" }, 1, { "new" }) }
+    local b = { make_hunk(2, { "old" }, 1, { "new" }) }  -- different old_start
+    assert.is_false(M._hunks_equal(a, b))
+  end)
+
+  it("returns false when old_lines content differs", function()
+    local a = { make_hunk(1, { "foo" }, 1, { "new" }) }
+    local b = { make_hunk(1, { "bar" }, 1, { "new" }) }
+    assert.is_false(M._hunks_equal(a, b))
+  end)
+
+  it("returns false when new_lines content differs", function()
+    local a = { make_hunk(1, { "old" }, 1, { "foo" }) }
+    local b = { make_hunk(1, { "old" }, 1, { "bar" }) }
+    assert.is_false(M._hunks_equal(a, b))
   end)
 end)

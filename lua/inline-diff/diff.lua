@@ -121,14 +121,14 @@ function M._myers_matched(old_lines, new_lines, prefix, suffix, m, n, om, nm)
         for bd = d, 1, -1 do
           local Vp = trace[bd - 1]
           local kk = cx - cy
-          local sx, sy, px, py
+          local sx, _, px, py
           if kk == -bd or (kk ~= bd and (Vp[kk - 1] or 0) < (Vp[kk + 1] or 0)) then
             local vp = Vp[kk + 1] or 0 -- insertion: came from diagonal kk+1
-            sx, sy = vp, vp - kk
+            sx, _ = vp, vp - kk
             px, py = vp, vp - kk - 1
           else
             local vp = Vp[kk - 1] or 0 -- deletion: came from diagonal kk-1
-            sx, sy = vp + 1, vp - kk + 1
+            sx, _ = vp + 1, vp - kk + 1
             px, py = vp, vp - kk + 1
           end
           while cx > sx do -- mark the snake (diagonal = matching lines)

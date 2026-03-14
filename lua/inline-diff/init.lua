@@ -5,7 +5,7 @@ local render = require("inline-diff.render")
 
 local M = {}
 
-local function hunks_equal(a, b)
+function M._hunks_equal(a, b)
   if a == b then
     return true
   end
@@ -87,7 +87,7 @@ function M._refresh(bufnr)
       if not s3 or not s3.enabled or s3.generation ~= gen then
         return
       end
-      if hunks_equal(hunks, s3.prev_hunks) then
+      if M._hunks_equal(hunks, s3.prev_hunks) then
         return
       end
       s3.prev_hunks = hunks
@@ -216,6 +216,7 @@ function M.enable(bufnr, ref)
     s.ref = ref
     s.ref_lines = nil
     s.ref_dirty = true
+    s.prev_hunks = nil
     M._refresh(bufnr)
     return
   end
