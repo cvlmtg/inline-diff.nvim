@@ -205,4 +205,62 @@ describe("_word_diff", function()
       pos = seg.byte_end + 1
     end
   end)
+
+  it("does not split multi-byte UTF-8 characters across segment boundaries", function()
+    -- "hello 世界" vs "hello 地球": only the CJK characters differ
+    local old_line = "hello \xe4\xb8\x96\xe7\x95\x8c" -- 世界
+    local new_line = "hello \xe5\x9c\xb0\xe7\x90\x83" -- 地球
+    local old_segs, new_segs = diff._word_diff(old_line, new_line)
+
+    -- Every segment text must equal string.sub(line, byte_start, byte_end)
+    for _, seg in ipairs(old_segs) do
+      assert.are.equal(seg.text, old_line:sub(seg.byte_start, seg.byte_end))
+    end
+    for _, seg in ipairs(new_segs) do
+      assert.are.equal(seg.text, new_line:sub(seg.byte_start, seg.byte_end))
+    end
+
+    -- "hello " prefix must be marked equal (not changed)
+    assert.are.equal("equal", old_segs[1].type)
+    assert.are.equal("hello ", old_segs[1].text)
+  end)
+
+  it("handles lines containing only multi-byte characters", function()
+    local old_line = "\xc3\xa9" -- é (2-byte)
+    local new_line = "\xc3\xa0" -- à (2-byte)
+    local old_segs, new_segs = diff._word_diff(old_line, new_line)
+
+    -- Byte offsets must reconstruct the original lines
+    for _, seg in ipairs(old_segs) do
+      assert.are.equal(seg.text, old_line:sub(seg.byte_start, seg.byte_end))
+    end
+    for _, seg in ipairs(new_segs) do
+      assert.are.equal(seg.text, new_line:sub(seg.byte_start, seg.byte_end))
+    end
+  end)
+end)
+
+describe("_tokenize", function()
+  it("treats each multi-byte UTF-8 character as a single token", function()
+    -- é = 0xC3 0xA9 (2 bytes); must be one token, not two
+    local tokens = diff._tokenize("\xc3\xa9")
+    assert.are.equal(1, #tokens)
+    assert.are.equal("\xc3\xa9", tokens[1])
+  end)
+
+  it("treats each 3-byte CJK character as a single token", function()
+    -- 中 = 0xE4 0xB8 0xAD (3 bytes)
+    local tokens = diff._tokenize("\xe4\xb8\xad")
+    assert.are.equal(1, #tokens)
+    assert.are.equal("\xe4\xb8\xad", tokens[1])
+  end)
+
+  it("mixes ASCII words and multi-byte chars correctly", function()
+    -- "hi é" -> {"hi", " ", "é"}
+    local tokens = diff._tokenize("hi \xc3\xa9")
+    assert.are.equal(3, #tokens)
+    assert.are.equal("hi", tokens[1])
+    assert.are.equal(" ", tokens[2])
+    assert.are.equal("\xc3\xa9", tokens[3])
+  end)
 end)

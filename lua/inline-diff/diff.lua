@@ -276,12 +276,16 @@ local function tokenize(str)
       tokens[#tokens + 1] = str:sub(s, e)
       i = e + 1
     else
-      tokens[#tokens + 1] = str:sub(i, i)
-      i = i + 1
+      local byte = str:byte(i)
+      local char_len = byte < 0x80 and 1 or byte < 0xE0 and 2 or byte < 0xF0 and 3 or 4
+      tokens[#tokens + 1] = str:sub(i, i + char_len - 1)
+      i = i + char_len
     end
   end
   return tokens
 end
+
+M._tokenize = tokenize
 
 function M._word_diff(old_line, new_line)
   local old_tokens = tokenize(old_line)
