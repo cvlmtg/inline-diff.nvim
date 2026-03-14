@@ -212,7 +212,9 @@ function M._diff_lines(old_lines, new_lines)
 end
 
 function M.compute_hunks(old_lines, new_lines, callback)
-  if not vim.uv.new_thread then
+  -- For small inputs the thread round-trip (concat→spawn→decode→encode→decode)
+  -- costs more than the diff itself; run synchronously instead.
+  if not vim.uv.new_thread or #old_lines + #new_lines < 200 then
     callback(M._diff_lines(old_lines, new_lines))
     return
   end
