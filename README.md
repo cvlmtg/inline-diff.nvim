@@ -30,6 +30,14 @@ column without showing the actual content of deletions. inline-diff.nvim
 shows you the full picture: removed text appears struck through (or
 highlighted) next to the new version, at the word level.
 
+`mini.diff` also updates live as you type and can display word-level diffs
+with deleted virtual lines via its togglable overlay — so the visualization
+is comparable. The difference is scope: mini.diff is a broader hunk-management
+tool with apply/reset actions, navigation mappings, and textobject support,
+while inline-diff.nvim is intentionally a focused, zero-friction visualization
+layer. If you just want to see what changed without any extra bindings or
+mental overhead, inline-diff.nvim is the leaner choice.
+
 ---
 
 ## Get started
