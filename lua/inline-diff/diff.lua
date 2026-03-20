@@ -2,10 +2,6 @@ local M = {}
 
 M._root_cache = {}
 
--- Prevents async handles from being GC'd before the thread callback fires.
-local _pending = {} -- luacheck: ignore
-local _pending_id = 0 -- luacheck: ignore
-
 function M.get_ref_content(filepath, ref, callback)
   local dir = vim.fn.fnamemodify(filepath, ":h")
   local cached_root = M._root_cache[dir]
@@ -157,113 +153,39 @@ function M._myers_matched(old_lines, new_lines, prefix, suffix, m, n, om, nm)
 end
 
 function M._diff_lines(old_lines, new_lines)
-  local m, n = #old_lines, #new_lines
+  -- Empty line arrays must produce "" not "\n" (which would represent one empty line).
+  local old_str = #old_lines > 0 and (table.concat(old_lines, "\n") .. "\n") or ""
+  local new_str = #new_lines > 0 and (table.concat(new_lines, "\n") .. "\n") or ""
+  local indices = vim.diff(old_str, new_str, { result_type = "indices" })
 
-  -- Strip common prefix and suffix to reduce Myers work
-  local prefix = 0
-  while prefix < m and prefix < n and old_lines[prefix + 1] == new_lines[prefix + 1] do
-    prefix = prefix + 1
-  end
-  local suffix = 0
-  while suffix < (m - prefix) and suffix < (n - prefix) and old_lines[m - suffix] == new_lines[n - suffix] do
-    suffix = suffix + 1
-  end
-
-  local om = m - prefix - suffix
-  local nm = n - prefix - suffix
-
-  if om == 0 and nm == 0 then
-    return {}
-  end
-
-  local old_matched, new_matched = M._myers_matched(old_lines, new_lines, prefix, suffix, m, n, om, nm)
-
-  -- Walk both sequences in parallel and extract contiguous change blocks
   local hunks = {}
-  local oi, ni = 1, 1
-  while oi <= m or ni <= n do
-    -- Skip matched lines (advance both pointers in lockstep for equal lines)
-    if oi <= m and ni <= n and old_matched[oi] and new_matched[ni] and old_lines[oi] == new_lines[ni] then
-      oi = oi + 1
-      ni = ni + 1
-    else
-      -- Collect a contiguous block of changes
-      local old_start = oi
-      local new_start = ni
-      local del_lines = {}
-      local add_lines = {}
-
-      -- Gather unmatched old lines (deletions)
-      while oi <= m and not old_matched[oi] do
-        del_lines[#del_lines + 1] = old_lines[oi]
-        oi = oi + 1
-      end
-      -- Gather unmatched new lines (additions)
-      while ni <= n and not new_matched[ni] do
-        add_lines[#add_lines + 1] = new_lines[ni]
-        ni = ni + 1
-      end
-
-      if #del_lines > 0 or #add_lines > 0 then
-        hunks[#hunks + 1] = {
-          old_start = old_start,
-          old_count = #del_lines,
-          new_start = #add_lines > 0 and new_start or (new_start - 1),
-          new_count = #add_lines,
-          old_lines = del_lines,
-          new_lines = add_lines,
-        }
-      end
+  for _, idx in ipairs(indices) do
+    local os, oc, ns, nc = idx[1], idx[2], idx[3], idx[4]
+    local del = {}
+    for i = os, os + oc - 1 do
+      del[#del + 1] = old_lines[i]
     end
+    local add = {}
+    for i = ns, ns + nc - 1 do
+      add[#add + 1] = new_lines[i]
+    end
+    -- vim.diff result_type="indices" already uses the render.apply anchor convention:
+    --   pure deletions: ns = line after which the deletion appears (0 = before first line)
+    --   additions/changes: ns = 1-based start line in new
+    hunks[#hunks + 1] = {
+      old_start = os,
+      old_count = oc,
+      new_start = ns,
+      new_count = nc,
+      old_lines = del,
+      new_lines = add,
+    }
   end
-
   return hunks
 end
 
 function M.compute_hunks(old_lines, new_lines, callback)
-  -- For small inputs the thread round-trip (concat→spawn→decode→encode→decode)
-  -- costs more than the diff itself; run synchronously instead.
-  if not vim.uv.new_thread or #old_lines + #new_lines < 500 then
-    callback(M._diff_lines(old_lines, new_lines))
-    return
-  end
-
-  local old_s = table.concat(old_lines, "\n")
-  local new_s = table.concat(new_lines, "\n")
-  local pkg_path = package.path
-
-  _pending_id = _pending_id + 1
-  local id = _pending_id
-  -- Close the handle on the main thread (closing from the thread suppresses delivery).
-  local async
-  async = vim.uv.new_async(vim.schedule_wrap(function(result)
-    async:close()
-    _pending[id] = nil
-    if result:sub(1, 4) == "ERR:" then
-      -- Thread failed to load the worker (e.g. package.path issue on Windows);
-      -- fall back to computing the diff synchronously on the main thread.
-      callback(M._diff_lines(old_lines, new_lines))
-      return
-    end
-    local ok, hunks = pcall(vim.json.decode, result)
-    callback(ok and hunks or nil, not ok and result or nil)
-  end))
-  _pending[id] = async -- prevent GC before the thread fires
-
-  vim.uv.new_thread(function(pkg, old, new, handle)
-    package.path = pkg
-    local ok, worker = pcall(require, "inline-diff._worker")
-    if not ok then
-      handle:send("ERR:" .. tostring(worker))
-      return
-    end
-    local ok2, result = pcall(worker.run, old, new)
-    if not ok2 then
-      handle:send("ERR:" .. tostring(result))
-      return
-    end
-    handle:send(result)
-  end, pkg_path, old_s, new_s, async)
+  callback(M._diff_lines(old_lines, new_lines))
 end
 
 local function tokenize(str)
