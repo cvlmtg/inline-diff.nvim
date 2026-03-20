@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [3.0.0] - 2026-03-21
+
+### Performance
+- Line-level diff now uses Neovim's built-in `vim.diff()` (C xdiff library) instead of the pure-Lua Myers O(ND) implementation, delivering a 5–6× speedup on large files
+- Async thread machinery removed (`vim.uv.new_thread`, `_worker.lua`, JSON encode/decode round-trip) — `vim.diff` is synchronous and fast enough for all file sizes
+
+### Internal
+- Deleted `lua/inline-diff/_worker.lua`
+- `compute_hunks` is now synchronous (callback signature preserved for API compatibility)
+- `_myers_matched` retained for word-level (sub-line) diffing
+
 ## [2.3.0] - 2026-03-14
 
 ### Fixed
