@@ -14,7 +14,7 @@ nvim --headless --clean -c "set rtp+=." -c "luafile bench/run.lua"
 | | |
 |---|---|
 | Machine | Apple M4 Pro, 24 GB RAM |
-| OS | macOS 15.3 (Darwin 25.3.0) |
+| OS | macOS Tahoe 26.3.1 (Darwin 25.3.0) |
 | Neovim | 0.11.6 |
 | Iterations | 10 measured + 2 warmup |
 
