@@ -301,4 +301,48 @@ function M.toggle(bufnr, ref)
   end
 end
 
+-- Jump to the next (step > 0) or previous (step < 0) change hunk, wrapping
+-- around at either end. Returns the target 1-based line, or nil when there
+-- are no hunks (or the buffer is not enabled).
+function M._goto_hunk(bufnr, step)
+  local s = state._bufs[bufnr]
+  local hunks = s and s.prev_hunks
+  if not s or not s.enabled or not hunks or #hunks == 0 then
+    return nil
+  end
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local target
+  if step > 0 then
+    for _, h in ipairs(hunks) do
+      local t = math.max(h.new_start, 1)
+      if t > row then
+        target = t
+        break
+      end
+    end
+    target = target or math.max(hunks[1].new_start, 1)
+  else
+    for i = #hunks, 1, -1 do
+      local t = math.max(hunks[i].new_start, 1)
+      if t < row then
+        target = t
+        break
+      end
+    end
+    target = target or math.max(hunks[#hunks].new_start, 1)
+  end
+  vim.api.nvim_win_set_cursor(0, { target, 0 })
+  return target
+end
+
+function M.next_hunk(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  return M._goto_hunk(bufnr, 1)
+end
+
+function M.prev_hunk(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  return M._goto_hunk(bufnr, -1)
+end
+
 return M
