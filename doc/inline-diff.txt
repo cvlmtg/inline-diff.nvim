@@ -27,6 +27,7 @@ Call `setup()` once in your config. All arguments are optional: >lua
 
     require("inline-diff").setup({
       debounce_ms = 150,  -- ms to wait after last keystroke
+      word_del_strikethrough = true,  -- strikethrough deleted words in changed lines
     })
 <
 
@@ -37,6 +38,12 @@ Options ~
       Type: `number`, Default: `150`
       Milliseconds to wait after the last keystroke before recomputing the
       diff. Raise this value if you notice CPU usage during fast typing.
+
+  word_del_strikethrough                  *inline-diff-config-word_del_strikethrough*
+      Type: `boolean`, Default: `true`
+      When `true`, words deleted within a changed line are shown with a
+      strikethrough. Set to `false` to render them with the same solid
+      background as fully removed lines.
 
 ==============================================================================
 COMMANDS                                                  *inline-diff-commands*
@@ -104,7 +111,8 @@ Colors are derived automatically from your colorscheme's `DiffAdd` and
 
   InlineDiffWordDel       *hl-InlineDiffWordDel*
       Background of individual deleted words in virtual lines
-      (brighter than InlineDiffDelete, strikethrough).
+      (brighter than InlineDiffDelete; strikethrough unless
+      `word_del_strikethrough` is `false`).
 
 Override any group after `setup()` or inside a `ColorScheme` autocmd: >lua
 

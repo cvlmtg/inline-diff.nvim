@@ -40,10 +40,12 @@ end
 
 M.config = {
   debounce_ms = 150,
+  word_del_strikethrough = true,
 }
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  highlight.word_del_strikethrough = M.config.word_del_strikethrough
   highlight.define()
   highlight.setup_autocmd()
 end
@@ -225,6 +227,7 @@ function M.enable(bufnr, ref)
   s.ref = ref
 
   -- Ensure highlights are defined
+  highlight.word_del_strikethrough = M.config.word_del_strikethrough
   highlight.define()
 
   -- Initial refresh

@@ -1,5 +1,7 @@
 local M = {}
 
+M.word_del_strikethrough = true
+
 function M._rgb_to_hsl(rgb)
   local r = bit.rshift(bit.band(rgb, 0xFF0000), 16) / 255
   local g = bit.rshift(bit.band(rgb, 0x00FF00), 8) / 255
@@ -90,7 +92,11 @@ function M.define()
   vim.api.nvim_set_hl(0, "InlineDiffAdd", { bg = add_bg, fg = M._contrast_fg(add_bg) })
   vim.api.nvim_set_hl(0, "InlineDiffDelete", { bg = del_bg, fg = M._contrast_fg(del_bg) })
   vim.api.nvim_set_hl(0, "InlineDiffWordAdd", { bg = word_add_bg, fg = M._contrast_fg(word_add_bg) })
-  vim.api.nvim_set_hl(0, "InlineDiffWordDel", { bg = word_del_bg, fg = M._contrast_fg(word_del_bg), strikethrough = true })
+  local word_del_hl = { bg = word_del_bg, fg = M._contrast_fg(word_del_bg) }
+  if M.word_del_strikethrough ~= false then
+    word_del_hl.strikethrough = true
+  end
+  vim.api.nvim_set_hl(0, "InlineDiffWordDel", word_del_hl)
 end
 
 function M.setup_autocmd()
