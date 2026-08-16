@@ -101,6 +101,67 @@ describe("enable / disable / toggle", function()
   end)
 end)
 
+describe("_goto_hunk", function()
+  local bufnr
+
+  local function set_hunks(...)
+    local s = state._bufs[bufnr]
+    s.enabled = true
+    s.prev_hunks = { ... }
+  end
+
+  before_each(function()
+    bufnr = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "l1", "l2", "l3", "l4", "l5" })
+    vim.api.nvim_set_current_buf(bufnr)
+    M.enable(bufnr)
+    set_hunks()
+  end)
+
+  after_each(function()
+    pcall(M.disable, bufnr)
+    pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
+    state._bufs[bufnr] = nil
+  end)
+
+  it("returns nil when there are no hunks", function()
+    assert.is_nil(M.next_hunk(bufnr))
+    assert.is_nil(M.prev_hunk(bufnr))
+  end)
+
+  it("moves to the next hunk after the cursor", function()
+    set_hunks(make_hunk(1, { "a" }, 1, { "x" }), make_hunk(3, { "c" }, 3, { "z" }))
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    assert.are.equal(3, M.next_hunk(bufnr))
+    assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
+  end)
+
+  it("moves to the previous hunk before the cursor", function()
+    set_hunks(make_hunk(1, { "a" }, 1, { "x" }), make_hunk(3, { "c" }, 3, { "z" }))
+    vim.api.nvim_win_set_cursor(0, { 4, 0 })
+    assert.are.equal(3, M.prev_hunk(bufnr))
+    assert.are.equal(3, vim.api.nvim_win_get_cursor(0)[1])
+  end)
+
+  it("wraps from the last hunk to the first on next", function()
+    set_hunks(make_hunk(1, { "a" }, 1, { "x" }), make_hunk(3, { "c" }, 3, { "z" }))
+    vim.api.nvim_win_set_cursor(0, { 5, 0 })
+    assert.are.equal(1, M.next_hunk(bufnr))
+  end)
+
+  it("wraps from the first hunk to the last on prev", function()
+    set_hunks(make_hunk(1, { "a" }, 1, { "x" }), make_hunk(3, { "c" }, 3, { "z" }))
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    assert.are.equal(3, M.prev_hunk(bufnr))
+  end)
+
+  it("clamps a deletion at line 0 to line 1", function()
+    set_hunks(make_hunk(1, { "a" }, 0, {}))
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+    assert.are.equal(1, M.next_hunk(bufnr))
+  end)
+end)
+
 describe("_hunks_equal", function()
   it("returns true for both nil", function()
     assert.is_true(M._hunks_equal(nil, nil))

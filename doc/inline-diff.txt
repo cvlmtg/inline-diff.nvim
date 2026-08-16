@@ -55,6 +55,13 @@ COMMANDS                                                  *inline-diff-commands*
     Toggle inline diff for the current buffer. Without `ref`, disables if
     currently enabled. With `ref`, always enables (or switches ref).
 
+:InlineDiffNext                                  *:InlineDiffNext*
+    Jump to the next change hunk. Wraps to the first hunk when past the last.
+
+:InlineDiffPrev                                  *:InlineDiffPrev*
+    Jump to the previous change hunk. Wraps to the last hunk when before the
+    first.
+
 ==============================================================================
 LUA API                                                   *inline-diff-api*
 
@@ -78,12 +85,24 @@ require("inline-diff").toggle([bufnr], [ref])   *inline-diff.toggle()*
     Toggle inline diff. Without `ref`, disables if currently enabled.
     With `ref`, always enables (or switches ref).
 
+require("inline-diff").next_hunk([bufnr])        *inline-diff.next_hunk()*
+    Jump the cursor to the next change hunk (wrapping to the first). Returns
+    the target 1-based line, or `nil` if there are no hunks.
+
+require("inline-diff").prev_hunk([bufnr])        *inline-diff.prev_hunk()*
+    Jump the cursor to the previous change hunk (wrapping to the last).
+    Returns the target 1-based line, or `nil` if there are no hunks.
+
 Example keymaps: >lua
 
     vim.keymap.set("n", "<leader>gd", "<cmd>InlineDiff<cr>",
       { desc = "Toggle inline diff" })
     vim.keymap.set("n", "<leader>gD", "<cmd>InlineDiff HEAD~1<cr>",
       { desc = "Diff against HEAD~1" })
+    vim.keymap.set("n", "]c", "<cmd>InlineDiffNext<cr>",
+      { desc = "Next change" })
+    vim.keymap.set("n", "[c", "<cmd>InlineDiffPrev<cr>",
+      { desc = "Prev change" })
 <
 
 ==============================================================================
