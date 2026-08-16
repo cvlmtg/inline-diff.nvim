@@ -94,3 +94,21 @@ describe("_boost_color", function()
     assert.is_true(math.abs((l_out - l_in) - 0.22) < 0.02, "lightness delta should be ~0.22")
   end)
 end)
+
+describe("define / word_del_strikethrough", function()
+  local function word_del_attrs()
+    return vim.api.nvim_get_hl(0, { name = "InlineDiffWordDel", link = false })
+  end
+
+  it("defaults to strikethrough", function()
+    highlight.word_del_strikethrough = nil
+    highlight.define()
+    assert.is_true(word_del_attrs().strikethrough, "strikethrough should default to true")
+  end)
+
+  it("honors word_del_strikethrough = false", function()
+    highlight.word_del_strikethrough = false
+    highlight.define()
+    assert.is_nil(word_del_attrs().strikethrough, "strikethrough should be absent when disabled")
+  end)
+end)
