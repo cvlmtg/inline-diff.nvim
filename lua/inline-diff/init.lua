@@ -137,7 +137,9 @@ function M._adjust_scroll(bufnr, ns)
         if m[4].virt_lines and m[4].virt_lines_above then
           local count = #m[4].virt_lines
           if view.topfill ~= count then
-            vim.fn.win_execute(winid, "lua vim.fn.winrestview({topfill=" .. count .. "})")
+            vim.api.nvim_win_call(winid, function()
+              vim.fn.winrestview({ topfill = count })
+            end)
           end
           break
         end
@@ -173,7 +175,9 @@ function M._adjust_scroll(bufnr, ns)
               local space = win_height - last_line_row - last_line_height
               local needed = count - space
               if needed > 0 then
-                vim.fn.win_execute(winid, "normal! " .. needed .. "\5") -- N<C-e>
+                vim.api.nvim_win_call(winid, function()
+                  vim.cmd.normal(needed .. "\5") -- N<C-e>
+                end)
               end
             end
           end
