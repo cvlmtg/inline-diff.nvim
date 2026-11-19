@@ -40,12 +40,27 @@ end
 
 M.config = {
   debounce_ms = 150,
+  default_ref = "HEAD",
 }
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
   highlight.define()
   highlight.setup_autocmd()
+end
+
+function M.get_ref()
+  return M.config.default_ref
+end
+
+function M.set_ref(ref)
+  M.config.default_ref = ref or "HEAD"
+
+  for bufnr, s in pairs(state._bufs) do
+    if s.enabled and vim.api.nvim_buf_is_valid(bufnr) then
+      M.enable(bufnr, M.config.default_ref)
+    end
+  end
 end
 
 function M._refresh(bufnr)
@@ -204,7 +219,7 @@ end
 
 function M.enable(bufnr, ref)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
-  ref = ref or "HEAD"
+  ref = ref or M.config.default_ref or "HEAD"
   local s = state.get(bufnr)
 
   if s.enabled then
