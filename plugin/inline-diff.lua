@@ -11,3 +11,8 @@ vim.api.nvim_create_user_command("InlineDiff", function(args)
   local ref = args.args ~= "" and args.args or nil
   require("inline-diff").toggle(nil, ref)
 end, { nargs = "?" })
+
+vim.api.nvim_create_user_command("InlineDiffSetRef", function(args)
+  local ref = args.args ~= "" and args.args or nil
+  require("inline-diff").set_ref(ref)
+end, { nargs = "?" })
